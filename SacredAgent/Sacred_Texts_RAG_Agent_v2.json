@@ -101,6 +101,38 @@
             "tool_mode": true
           }
         }
+      },
+      {
+        "id": "ExaWebSearch-d4f6a8",
+        "type": "genericNode",
+        "position": {"x": 320, "y": 600},
+        "data": {
+          "id": "ExaWebSearch-d4f6a8",
+          "type": "CustomComponent",
+          "showNode": true,
+          "node": {
+            "template": {
+              "search_query": {"name": "search_query", "display_name": "Search Query", "type": "str", "value": "", "required": true, "show": true, "advanced": false, "dynamic": true, "tool_mode": true, "info": "The query to search using Exa AI web search."},
+              "num_results": {"name": "num_results", "display_name": "Number of Results", "type": "int", "value": 5, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Number of results to retrieve (max 10)."},
+              "search_type": {"name": "search_type", "display_name": "Search Type", "type": "str", "value": "auto", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Search type: auto, neural, keyword.", "options": ["auto", "neural", "keyword"]},
+              "exa_api_key": {"name": "exa_api_key", "display_name": "Exa API Key", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "password": true, "info": "Exa API key for web search access."},
+              "code": {
+                "name": "code",
+                "display_name": "Code",
+                "type": "code",
+                "value": "from langflow.custom import Component\nfrom langflow.io import MessageTextInput, IntInput, DropdownInput, SecretStrInput, Output\nfrom langflow.schema.message import Message\n\nclass ExaWebSearchTool(Component):\n    display_name = \"Exa Web Search\"\n    description = \"Search the web with Exa AI for real-time information, current events, news, and web content using advanced AI-powered search.\"\n    icon = \"Search\"\n    name = \"ExaWebSearch\"\n\n    inputs = [\n        MessageTextInput(name=\"search_query\", display_name=\"Search Query\", info=\"The query to search using Exa AI web search.\", value=\"\", tool_mode=True, required=True),\n        IntInput(name=\"num_results\", display_name=\"Number of Results\", info=\"Number of results to retrieve (max 10).\", value=5, tool_mode=False, required=False),\n        DropdownInput(name=\"search_type\", display_name=\"Search Type\", info=\"Search type: auto, neural, keyword.\", value=\"auto\", options=[\"auto\", \"neural\", \"keyword\"], tool_mode=False, required=False),\n        SecretStrInput(name=\"exa_api_key\", display_name=\"Exa API Key\", info=\"Exa API key for web search access.\", value=\"\", tool_mode=False, required=False),\n    ]\n\n    outputs = [Output(display_name=\"Search Results\", name=\"search_results\", method=\"search_exa\"), Output(display_name=\"Tool\", name=\"component_as_tool\", method=\"search_exa\", tool_mode=True)]\n\n    def search_exa(self) -> Message:\n        query = self.search_query\n        if not query:\n            return Message(text=\"Error: No search query provided.\")\n\n        exa_api_key = self.exa_api_key or os.getenv(\"EXA_API_KEY\", \"\")\n        if not exa_api_key:\n            return Message(text=\"Error: Exa API key is required. Set EXA_API_KEY environment variable or provide it in the component.\")\n\n        try:\n            import requests\n            import os\n            \n            # Build request payload\n            search_payload = {\n                \"query\": query,\n                \"num_results\": min(self.num_results, 10),\n                \"use_autoprompt\": True\n            }\n            \n            # Add search type if specified\n            if self.search_type and self.search_type != \"auto\":\n                search_payload[\"type\"] = self.search_type\n\n            # Make API request\n            headers = {\n                \"Authorization\": f\"Bearer {exa_api_key}\",\n                \"Content-Type\": \"application/json\"\n            }\n            \n            response = requests.post(\n                \"https://api.exa.ai/search\",\n                json=search_payload,\n                headers=headers,\n                timeout=30\n            )\n            \n            # Handle specific error cases\n            if response.status_code == 401:\n                return Message(text=\"Error: Invalid Exa API key. Please check your EXA_API_KEY environment variable or provide a valid API key in the component.\")\n            elif response.status_code == 429:\n                return Message(text=\"Error: Exa API rate limit exceeded. Please wait before making another request or check your subscription plan.\")\n            elif response.status_code != 200:\n                return Message(text=f\"Exa API error: HTTP {response.status_code} - {response.text}\")\n            \n            # Parse results\n            data = response.json()\n            results = data.get(\"results\", [])\n            \n            if not results:\n                return Message(text=f\"No web results found for '{query}'.\")\n            \n            formatted = []\n            for i, result in enumerate(results, 1):\n                title = result.get(\"title\", f\"Result {i}\")\n                url = result.get(\"url\", \"\")\n                author = result.get(\"author\", \"Unknown\")\n                \n                # Get text content (truncated to 2000 chars)\n                text_content = result.get(\"text\", \"\")\n                if len(text_content) > 2000:\n                    text_content = text_content[:2000] + \"...\"\n                \n                formatted.append(f\"--- Web Result {i} ---\\nTitle: {title}\\nURL: {url}\\nAuthor: {author}\\nContent: {text_content}\\n\")\n            \n            output = f\"Exa web search results for '{query}':\\n\\n\" + \"\\n\\n\".join(formatted)\n            return Message(text=output)\n            \n        except ImportError:\n            return Message(text=\"Error: 'requests' library is required for Exa web search. Install it with: pip install requests\")\n        except requests.Timeout:\n            return Message(text=\"Exa web search timed out. Please try again.\")\n        except Exception as e:\n            return Message(text=f\"Exa web search error: {str(e)}\")\n",
+                "required": true, "show": true, "advanced": true, "multiline": true, "dynamic": true
+              },
+              "_type": {"name": "_type", "display_name": "Type", "type": "str", "value": "CustomComponent", "required": true, "show": false, "advanced": true}
+            },
+            "description": "Search the web with Exa AI for real-time information, current events, news, and web content using advanced AI-powered search.",
+            "display_name": "Exa Web Search",
+            "icon": "Search",
+            "base_classes": ["Message", "Data"],
+            "outputs": [{"name": "search_results", "display_name": "Search Results", "method": "search_exa", "types": ["Message"], "tool_mode": false}, {"name": "component_as_tool", "display_name": "Tool", "name": "component_as_tool", "method": "search_exa", "types": ["Tool"], "tool_mode": true}],
+            "tool_mode": true
+          }
+        }
       }
     ],
     "edges": []
