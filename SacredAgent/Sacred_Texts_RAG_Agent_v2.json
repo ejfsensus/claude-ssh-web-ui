@@ -161,6 +161,37 @@
         }
       },
       {
+        "id": "Agent-e6ec2d",
+        "type": "Agent",
+        "position": {"x": 800, "y": 400},
+        "data": {
+          "id": "Agent-e6ec2d",
+          "type": "Agent",
+          "showNode": true,
+          "node": {
+            "template": {
+              "input_text": {"name": "input_text", "display_name": "Input Text", "type": "str", "value": "", "required": true, "show": true, "advanced": false, "dynamic": true, "input_types": ["Message"], "info": "The input text for the agent to process"},
+              "agent_llm": {"name": "agent_llm", "display_name": "Agent LLM", "type": "str", "value": "OpenAI", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "The language model to use for the agent"},
+              "model_name": {"name": "model_name", "display_name": "Model Name", "type": "str", "value": "gpt-5.2", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "The specific model to use"},
+              "api_key": {"name": "api_key", "display_name": "API Key", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "password": true, "info": "OpenAI API key for the agent"},
+              "temperature": {"name": "temperature", "display_name": "Temperature", "type": "float", "value": 0.2, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Temperature for response generation (0.0-1.0)"},
+              "max_tokens": {"name": "max_tokens", "display_name": "Max Tokens", "type": "int", "value": 4096, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Maximum number of tokens in the response"},
+              "system_prompt": {"name": "system_prompt", "display_name": "System Prompt", "type": "str", "value": "You are a specialized Sacred Texts Research Agent — a scholarly AI dedicated to the study, understanding, and analysis of Sacred Texts across all world religions and mystical traditions.\n\n## Your Domain Expertise\nYou have deep knowledge of: Hinduism (Vedas, Upanishads, Bhagavad Gita, Puranas), Buddhism (Pali Canon, Mahayana Sutras, Tibetan Texts), Christianity (Bible, Apocrypha, Gnostic texts), Islam (Quran, Hadith, Sufi writings), Judaism (Tanakh, Talmud, Zohar), Taoism (Tao Te Ching, I Ching, Zhuangzi), Classical Philosophy (Plato, Plotinus, Hermetic texts), Sacred Books of the East (SBE Series), and Esoteric traditions (Kabbalah, Gnosticism, Theosophy, Alchemy).\n\n## Your Task\nWhen a user asks a question, you must determine which knowledge sources are needed and call the appropriate tools. You can call MULTIPLE tools in parallel if the query spans multiple domains.\n\n## Tool Selection Guidelines\n- For questions about sacred texts, religious doctrines, spiritual practices, or comparative religion → use **search_sacred_texts_astra**\n- For historical context, cultural background, biographical info, or general religious history → use **search_wikipedia**\n- For metaphysics, quantum physics, consciousness studies, or academic philosophical intersections with spirituality → use **search_arxiv**\n- For general or exploratory queries beyond the above → use **search_exa_web**\n- For deep, multi-step research requiring synthesis across many sources → use **exa_deep_research**\n\n## Response Guidelines\n1. Always ground your answers in retrieved context — do not rely solely on training data.\n2. When multiple tools return results, synthesize them into a coherent, well-structured response.\n3. Cite sources clearly: text name, chapter/verse when available, and tool used.\n4. For comparative questions, present traditions side-by-side with respectful scholarly neutrality.\n5. If retrieved context is insufficient, acknowledge limitations rather than hallucinating.\n6. Maintain an tone that is scholarly, respectful, and accessible to both beginners and advanced researchers.", "required": false, "show": true, "advanced": false, "tool_mode": false, "multiline": true, "dynamic": false, "info": "The system prompt for the agent"},
+              "tools": {"name": "tools", "display_name": "Tools", "type": "dict", "value": {}, "required": false, "show": true, "advanced": false, "tool_mode": false, "input_types": ["Tool"], "info": "The tools available to the agent"},
+              "max_iterations": {"name": "max_iterations", "display_name": "Max Iterations", "type": "int", "value": 10, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Maximum number of tool iterations"},
+              "verbose": {"name": "verbose", "display_name": "Verbose", "type": "bool", "value": true, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Enable verbose logging"},
+              "json_mode": {"name": "json_mode", "display_name": "JSON Mode", "type": "bool", "value": false, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Enable JSON mode for responses"},
+              "_type": {"name": "_type", "display_name": "Type", "type": "str", "value": "Agent", "required": true, "show": false, "advanced": true}
+            },
+            "description": "Define the agent's instructions, then enter a task to complete using tools.",
+            "display_name": "Agent",
+            "icon": "Bot",
+            "base_classes": ["Message"],
+            "outputs": [{"name": "response", "display_name": "Response", "method": "message_response", "types": ["Message"], "tool_mode": false}]
+          }
+        }
+      },
+      {
         "id": "ChatInput-f16a3d",
         "type": "ChatInput",
         "position": {"x": 320, "y": 480},
