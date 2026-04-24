@@ -133,6 +133,32 @@
             "tool_mode": true
           }
         }
+      },
+      {
+        "id": "ExaMCPDeepResearch-e5a7b9",
+        "type": "genericNode",
+        "position": {"x": 320, "y": 760},
+        "data": {
+          "id": "ExaMCPDeepResearch-e5a7b9",
+          "type": "MCP",
+          "showNode": true,
+          "node": {
+            "template": {
+              "mode": {"name": "mode", "display_name": "Mode", "type": "str", "value": "SSE", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Connection mode (Stdio, SSE)", "options": ["Stdio", "SSE"]},
+              "server_url": {"name": "server_url", "display_name": "Server URL", "type": "str", "value": "https://mcp.exa.ai/sse", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "MCP server URL for SSE mode"},
+              "command": {"name": "command", "display_name": "Command", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Command to execute (not used in SSE mode)"},
+              "api_key": {"name": "api_key", "display_name": "API Key", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "password": true, "info": "Exa API key for EXA_API_KEY env var"},
+              "env_vars": {"name": "env_vars", "display_name": "Environment Variables", "type": "dict", "value": {}, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Environment variables dictionary"},
+              "timeout": {"name": "timeout", "display_name": "Timeout", "type": "int", "value": 60, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Timeout in seconds"},
+              "_type": {"name": "_type", "display_name": "Type", "type": "str", "value": "MCP", "required": true, "show": false, "advanced": true}
+            },
+            "description": "Connect to the Exa MCP server for deep research capabilities...",
+            "display_name": "Exa MCP Deep Research",
+            "icon": "Brain",
+            "base_classes": ["Tool"],
+            "outputs": [{"name": "component_as_tool", "display_name": "Tool", "method": "fetch_tools", "tool_mode": true}]
+          }
+        }
       }
     ],
     "edges": []
