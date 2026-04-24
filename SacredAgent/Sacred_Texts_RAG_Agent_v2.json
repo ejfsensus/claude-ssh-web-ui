@@ -247,7 +247,246 @@
         }
       }
     ],
-    "edges": []
+    "edges": [
+    {
+      "id": "edge-ChatInput-Agent",
+      "source": "ChatInput-f16a3d",
+      "target": "Agent-e6ec2d",
+      "sourceHandle": {
+        "dataType": "Message",
+        "id": "message",
+        "name": "message",
+        "output_types": ["Message"]
+      },
+      "targetHandle": {
+        "fieldName": "input_text",
+        "id": "input_text",
+        "inputTypes": ["Message"],
+        "type": "Message"
+      },
+      "data": {
+        "sourceHandle": {
+          "dataType": "Message",
+          "id": "message",
+          "name": "message",
+          "output_types": ["Message"]
+        },
+        "targetHandle": {
+          "fieldName": "input_text",
+          "id": "input_text",
+          "inputTypes": ["Message"],
+          "type": "Message"
+        }
+      },
+      "animated": false,
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "edge-AstraDB-Agent",
+      "source": "AstraDBSacredTexts-c1f2a3",
+      "target": "Agent-e6ec2d",
+      "sourceHandle": {
+        "dataType": "Tool",
+        "id": "component_as_tool",
+        "name": "component_as_tool",
+        "output_types": ["Tool"]
+      },
+      "targetHandle": {
+        "fieldName": "tools",
+        "id": "tools",
+        "inputTypes": ["Tool"],
+        "type": "Tool"
+      },
+      "data": {
+        "sourceHandle": {
+          "dataType": "Tool",
+          "id": "component_as_tool",
+          "name": "component_as_tool",
+          "output_types": ["Tool"]
+        },
+        "targetHandle": {
+          "fieldName": "tools",
+          "id": "tools",
+          "inputTypes": ["Tool"],
+          "type": "Tool"
+        }
+      },
+      "animated": false,
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "edge-Wikipedia-Agent",
+      "source": "WikipediaSearch-b2d4e6",
+      "target": "Agent-e6ec2d",
+      "sourceHandle": {
+        "dataType": "Tool",
+        "id": "component_as_tool",
+        "name": "component_as_tool",
+        "output_types": ["Tool"]
+      },
+      "targetHandle": {
+        "fieldName": "tools",
+        "id": "tools",
+        "inputTypes": ["Tool"],
+        "type": "Tool"
+      },
+      "data": {
+        "sourceHandle": {
+          "dataType": "Tool",
+          "id": "component_as_tool",
+          "name": "component_as_tool",
+          "output_types": ["Tool"]
+        },
+        "targetHandle": {
+          "fieldName": "tools",
+          "id": "tools",
+          "inputTypes": ["Tool"],
+          "type": "Tool"
+        }
+      },
+      "animated": false,
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "edge-Arxiv-Agent",
+      "source": "ArxivSearch-c3e5f7",
+      "target": "Agent-e6ec2d",
+      "sourceHandle": {
+        "dataType": "Tool",
+        "id": "component_as_tool",
+        "name": "component_as_tool",
+        "output_types": ["Tool"]
+      },
+      "targetHandle": {
+        "fieldName": "tools",
+        "id": "tools",
+        "inputTypes": ["Tool"],
+        "type": "Tool"
+      },
+      "data": {
+        "sourceHandle": {
+          "dataType": "Tool",
+          "id": "component_as_tool",
+          "name": "component_as_tool",
+          "output_types": ["Tool"]
+        },
+        "targetHandle": {
+          "fieldName": "tools",
+          "id": "tools",
+          "inputTypes": ["Tool"],
+          "type": "Tool"
+        }
+      },
+      "animated": false,
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "edge-ExaWeb-Agent",
+      "source": "ExaWebSearch-d4f6a8",
+      "target": "Agent-e6ec2d",
+      "sourceHandle": {
+        "dataType": "Tool",
+        "id": "component_as_tool",
+        "name": "component_as_tool",
+        "output_types": ["Tool"]
+      },
+      "targetHandle": {
+        "fieldName": "tools",
+        "id": "tools",
+        "inputTypes": ["Tool"],
+        "type": "Tool"
+      },
+      "data": {
+        "sourceHandle": {
+          "dataType": "Tool",
+          "id": "component_as_tool",
+          "name": "component_as_tool",
+          "output_types": ["Tool"]
+        },
+        "targetHandle": {
+          "fieldName": "tools",
+          "id": "tools",
+          "inputTypes": ["Tool"],
+          "type": "Tool"
+        }
+      },
+      "animated": false,
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "edge-ExaMCP-Agent",
+      "source": "ExaMCPDeepResearch-e5a7b9",
+      "target": "Agent-e6ec2d",
+      "sourceHandle": {
+        "dataType": "Tool",
+        "id": "component_as_tool",
+        "name": "component_as_tool",
+        "output_types": ["Tool"]
+      },
+      "targetHandle": {
+        "fieldName": "tools",
+        "id": "tools",
+        "inputTypes": ["Tool"],
+        "type": "Tool"
+      },
+      "data": {
+        "sourceHandle": {
+          "dataType": "Tool",
+          "id": "component_as_tool",
+          "name": "component_as_tool",
+          "output_types": ["Tool"]
+        },
+        "targetHandle": {
+          "fieldName": "tools",
+          "id": "tools",
+          "inputTypes": ["Tool"],
+          "type": "Tool"
+        }
+      },
+      "animated": false,
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "edge-Agent-ChatOutput",
+      "source": "Agent-e6ec2d",
+      "target": "ChatOutput-3dcf91",
+      "sourceHandle": {
+        "dataType": "Message",
+        "id": "response",
+        "name": "response",
+        "output_types": ["Message"]
+      },
+      "targetHandle": {
+        "fieldName": "input_value",
+        "id": "input_value",
+        "inputTypes": ["Data", "DataFrame", "Message"],
+        "type": "Message"
+      },
+      "data": {
+        "sourceHandle": {
+          "dataType": "Message",
+          "id": "response",
+          "name": "response",
+          "output_types": ["Message"]
+        },
+        "targetHandle": {
+          "fieldName": "input_value",
+          "id": "input_value",
+          "inputTypes": ["Data", "DataFrame", "Message"],
+          "type": "Message"
+        }
+      },
+      "animated": false,
+      "className": "",
+      "selected": false
+    }
+  ]
   },
   "is_component": false,
   "tags": ["RAG", "Agent", "Sacred Texts", "AstraDB", "Wikipedia", "arXiv", "Exa", "MCP"],
