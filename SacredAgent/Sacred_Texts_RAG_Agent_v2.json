@@ -39,6 +39,37 @@
             "tool_mode": true
           }
         }
+      },
+      {
+        "id": "WikipediaSearch-b2d4e6",
+        "type": "genericNode",
+        "position": {"x": 320, "y": 280},
+        "data": {
+          "id": "WikipediaSearch-b2d4e6",
+          "type": "CustomComponent",
+          "showNode": true,
+          "node": {
+            "template": {
+              "search_query": {"name": "search_query", "display_name": "Search Query", "type": "str", "value": "", "required": true, "show": true, "advanced": false, "dynamic": true, "tool_mode": true, "info": "The query to search on Wikipedia."},
+              "num_results": {"name": "num_results", "display_name": "Number of Results", "type": "int", "value": 3, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Number of Wikipedia articles to retrieve (max 5)."},
+              "language": {"name": "language", "display_name": "Language", "type": "str", "value": "en", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Wikipedia language code (e.g., 'en', 'fr', 'de', 'sa', 'zh')."},
+              "code": {
+                "name": "code",
+                "display_name": "Code",
+                "type": "code",
+                "value": "from langflow.custom import Component\nfrom langflow.io import MessageTextInput, IntInput, Output\nfrom langflow.schema.message import Message\n\nclass WikipediaSearchTool(Component):\n    display_name = \"Wikipedia Search\"\n    description = \"Search Wikipedia for contextual knowledge, historical background, cultural information, religious history, biographical details, and general encyclopedic information.\"\n    icon = \"Globe\"\n    name = \"WikipediaSearch\"\n\n    inputs = [\n        MessageTextInput(name=\"search_query\", display_name=\"Search Query\", info=\"The query to search on Wikipedia.\", value=\"\", tool_mode=True, required=True),\n        IntInput(name=\"num_results\", display_name=\"Number of Results\", info=\"Number of Wikipedia articles to retrieve (max 5).\", value=3, tool_mode=False, required=False),\n        MessageTextInput(name=\"language\", display_name=\"Language\", info=\"Wikipedia language code (e.g., 'en', 'fr', 'de', 'sa', 'zh').\", value=\"en\", tool_mode=False, required=False),\n    ]\n\n    outputs = [Output(display_name=\"Search Results\", name=\"search_results\", method=\"search_wikipedia\"), Output(display_name=\"Tool\", name=\"component_as_tool\", method=\"search_wikipedia\", tool_mode=True)]\n\n    def search_wikipedia(self) -> Message:\n        query = self.search_query\n        if not query:\n            return Message(text=\"Error: No search query provided.\")\n\n        try:\n            import requests\n            search_url = f\"https://{self.language}.wikipedia.org/w/api.php\"\n            search_params = {\"action\": \"query\", \"list\": \"search\", \"srsearch\": query, \"srlimit\": min(self.num_results, 5), \"format\": \"json\", \"utf8\": 1}\n            resp = requests.get(search_url, params=search_params, timeout=15)\n            resp.raise_for_status()\n            data = resp.json()\n            search_results = data.get(\"query\", {}).get(\"search\", [])\n\n            if not search_results:\n                return Message(text=f\"No Wikipedia results found for '{query}'.\")\n\n            formatted = []\n            for result in search_results:\n                title = result.get(\"title\", \"Untitled\")\n                snippet = result.get(\"snippet\", \"\").replace(\"<span class='searchmatch'>\", \"\").replace(\"</span>\", \"\")\n                page_id = result.get(\"pageid\", \"\")\n                url = f\"https://{self.language}.wikipedia.org/?curid={page_id}\"\n\n                extract_params = {\"action\": \"query\", \"pageids\": page_id, \"prop\": \"extracts\", \"exintro\": False, \"explaintext\": True, \"exsentences\": 8, \"format\": \"json\"}\n                extract_resp = requests.get(search_url, params=extract_params, timeout=15)\n                extract_data = extract_resp.json()\n                pages = extract_data.get(\"query\", {}).get(\"pages\", {})\n                page_info = pages.get(str(page_id), {})\n                extract = page_info.get(\"extract\", snippet)[:1500]\n\n                formatted.append(f\"--- Wikipedia: {title} ---\\nURL: {url}\\nExtract: {extract}\\n\")\n\n            output = f\"Wikipedia search results for '{query}':\\n\\n\" + \"\\n\\n\".join(formatted)\n            return Message(text=output)\n\n        except ImportError:\n            return Message(text=\"Error: 'requests' library is required for Wikipedia search. Install it with: pip install requests\")\n        except requests.Timeout:\n            return Message(text=\"Wikipedia search timed out. Please try again.\")\n        except Exception as e:\n            return Message(text=f\"Wikipedia search error: {str(e)}\")\n",
+                "required": true, "show": true, "advanced": true, "multiline": true, "dynamic": true
+              },
+              "_type": {"name": "_type", "display_name": "Type", "type": "str", "value": "CustomComponent", "required": true, "show": false, "advanced": true}
+            },
+            "description": "Search Wikipedia for contextual knowledge, historical background, cultural information, religious history, biographical details, and general encyclopedic information.",
+            "display_name": "Wikipedia Search",
+            "icon": "Globe",
+            "base_classes": ["Message", "Data"],
+            "outputs": [{"name": "search_results", "display_name": "Search Results", "method": "search_wikipedia", "types": ["Message"], "tool_mode": false}, {"name": "component_as_tool", "display_name": "Tool", "method": "search_wikipedia", "types": ["Tool"], "tool_mode": true}],
+            "tool_mode": true
+          }
+        }
       }
     ],
     "edges": []
