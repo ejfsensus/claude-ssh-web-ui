@@ -1,0 +1,53 @@
+{
+  "name": "Sacred Texts RAG Agent v2",
+  "description": "Specialized RAG agent for Sacred Texts study using AstraDB vector store with external knowledge sources (Wikipedia, arXiv, Exa). Queries intelligently routed by GPT 5.2 agent.",
+  "icon": "BookOpen",
+  "icon_bg_color": "#4CAF50",
+  "data": {
+    "nodes": [
+      {
+        "id": "AstraDBSacredTexts-c1f2a3",
+        "type": "genericNode",
+        "position": {"x": 320, "y": 120},
+        "data": {
+          "id": "AstraDBSacredTexts-c1f2a3",
+          "type": "CustomComponent",
+          "showNode": true,
+          "node": {
+            "template": {
+              "search_query": {"name": "search_query", "display_name": "Search Query", "type": "str", "value": "", "required": true, "show": true, "advanced": false, "dynamic": true, "tool_mode": true, "info": "The query to search against the sacred texts vector database."},
+              "collection_name": {"name": "collection_name", "display_name": "Collection Name", "type": "str", "value": "sphere", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "The AstraDB collection containing sacred texts embeddings."},
+              "top_k": {"name": "top_k", "display_name": "Top K Results", "type": "int", "value": 5, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Number of similar documents to retrieve."},
+              "astra_token": {"name": "astra_token", "display_name": "AstraDB Token", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "password": true, "info": "AstraDB API token with access to the vector collection."},
+              "astra_endpoint": {"name": "astra_endpoint", "display_name": "AstraDB Endpoint", "type": "str", "value": "https://c3159809-d144-4510-848c-e0a621a35a5e-us-east1.apps.astra.datastax.com", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "The AstraDB database endpoint URL."},
+              "embedding_dimension": {"name": "embedding_dimension", "display_name": "Embedding Dimension", "type": "int", "value": 1536, "required": false, "show": true, "advanced": true, "tool_mode": false, "info": "Dimension of vector embeddings (1536 for OpenAI text-embedding-3-large)."},
+              "openai_api_key": {"name": "openai_api_key", "display_name": "OpenAI API Key", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "password": true, "info": "OpenAI API key for generating query embeddings."},
+              "code": {
+                "name": "code",
+                "display_name": "Code",
+                "type": "code",
+                "value": "from langflow.custom import Component\nfrom langflow.io import MessageTextInput, IntInput, SecretStrInput, Output\nfrom langflow.schema.message import Message\nimport os\n\nclass AstraDBSacredTextsTool(Component):\n    display_name = \"AstraDB Sacred Texts Search\"\n    description = \"Search the vectorized archive of Sacred Texts stored in AstraDB using pre-computed embeddings.\"\n    icon = \"BookOpen\"\n    name = \"AstraDBSacredTexts\"\n\n    inputs = [\n        MessageTextInput(name=\"search_query\", display_name=\"Search Query\", info=\"The query to search against the sacred texts vector database.\", value=\"\", tool_mode=True, required=True),\n        MessageTextInput(name=\"collection_name\", display_name=\"Collection Name\", info=\"The AstraDB collection containing sacred texts embeddings.\", value=\"sphere\", tool_mode=False, required=False),\n        IntInput(name=\"top_k\", display_name=\"Top K Results\", info=\"Number of similar documents to retrieve.\", value=5, tool_mode=False, required=False),\n        SecretStrInput(name=\"astra_token\", display_name=\"AstraDB Token\", info=\"AstraDB API token with access to the vector collection.\", value=\"\", tool_mode=False, required=False),\n        MessageTextInput(name=\"astra_endpoint\", display_name=\"AstraDB Endpoint\", info=\"The AstraDB database endpoint URL.\", value=\"https://c3159809-d144-4510-848c-e0a621a35a5e-us-east1.apps.astra.datastax.com\", tool_mode=False, required=False),\n        IntInput(name=\"embedding_dimension\", display_name=\"Embedding Dimension\", info=\"Dimension of vector embeddings (1536 for OpenAI text-embedding-3-large).\", value=1536, tool_mode=False, required=False),\n        SecretStrInput(name=\"openai_api_key\", display_name=\"OpenAI API Key\", info=\"OpenAI API key for generating query embeddings.\", value=\"\", tool_mode=False, required=False),\n    ]\n\n    outputs = [Output(display_name=\"Search Results\", name=\"search_results\", method=\"perform_search\"), Output(display_name=\"Tool\", name=\"component_as_tool\", method=\"perform_search\", tool_mode=True)]\n\n    def perform_search(self) -> Message:\n        query = self.search_query\n        if not query:\n            return Message(text=\"Error: No search query provided.\")\n\n        astra_token = self.astra_token or os.getenv(\"ASTRA_DB_TOKEN\", \"\")\n        astra_endpoint = self.astra_endpoint or os.getenv(\"ASTRA_DB_ENDPOINT\", \"\")\n        openai_api_key = self.openai_api_key or os.getenv(\"OPENAI_API_KEY\", \"\")\n\n        if not astra_token:\n            return Message(text=\"Error: AstraDB token is required. Set ASTRA_DB_TOKEN environment variable or provide it in the component.\")\n        if not astra_endpoint:\n            return Message(text=\"Error: AstraDB endpoint is required. Set ASTRA_DB_ENDPOINT environment variable or provide it in the component.\")\n        if not openai_api_key:\n            return Message(text=\"Error: OpenAI API key is required for query embedding generation. Set OPENAI_API_KEY environment variable or provide it in the component.\")\n\n        try:\n            from openai import OpenAI\n            client = OpenAI(api_key=openai_api_key)\n            response = client.embeddings.create(model=\"text-embedding-3-large\", input=query)\n            query_embedding = response.data[0].embedding\n\n            from astrapy import DataAPIClient\n            astra_client = DataAPIClient(token=astra_token)\n            db = astra_client.get_database_by_api_endpoint(astra_endpoint)\n            collection = db.get_collection(self.collection_name)\n\n            results = collection.find(filter={}, sort={\"$vector\": query_embedding}, limit=self.top_k, projection={\"text\": True, \"title\": True, \"source\": True, \"tradition\": True, \"location\": True})\n\n            formatted_results = []\n            for i, doc in enumerate(results, 1):\n                text = doc.get(\"text\", \"\")\n                title = doc.get(\"title\", \"Unknown Text\")\n                source = doc.get(\"source\", \"Unknown Source\")\n                tradition = doc.get(\"tradition\", \"General\")\n                location = doc.get(\"location\", \"\")\n                formatted_results.append(f\"--- Result {i} ---\\nTitle: {title}\\nSource: {source}\\nTradition: {tradition}\\nLocation: {location}\\nExcerpt: {text[:1200]}\\n\")\n\n            if not formatted_results:\n                return Message(text=\"No relevant sacred texts found for this query in the 'sphere' collection.\")\n\n            output = \"\\n\\n\".join(formatted_results)\n            return Message(text=output)\n\n        except ImportError as e:\n            missing_lib = str(e).split(\"'\")[1] if \"'\" in str(e) else \"required library\"\n            return Message(text=f\"Error: {missing_lib} is required. Install it with: pip install {missing_lib}\")\n        except Exception as e:\n            return Message(text=f\"AstraDB search error: {str(e)}\\n\\nTip: Verify your credentials, that the 'sphere' collection exists, and that it contains vector data.\")\n",
+                "required": true, "show": true, "advanced": true, "multiline": true, "dynamic": true
+              },
+              "_type": {"name": "_type", "display_name": "Type", "type": "str", "value": "CustomComponent", "required": true, "show": false, "advanced": true}
+            },
+            "description": "Search the vectorized archive of Sacred Texts stored in AstraDB using pre-computed embeddings.",
+            "display_name": "AstraDB Sacred Texts Search",
+            "icon": "BookOpen",
+            "base_classes": ["Message", "Data"],
+            "outputs": [{"name": "search_results", "display_name": "Search Results", "method": "perform_search", "types": ["Message"], "tool_mode": false}, {"name": "component_as_tool", "display_name": "Tool", "method": "perform_search", "types": ["Tool"], "tool_mode": true}],
+            "tool_mode": true
+          }
+        }
+      }
+    ],
+    "edges": []
+  },
+  "is_component": false,
+  "tags": ["RAG", "Agent", "Sacred Texts", "AstraDB", "Wikipedia", "arXiv", "Exa", "MCP"],
+  "locked": false,
+  "user_id": null,
+  "folder_id": null,
+  "date_created": "2026-04-24T00:00:00",
+  "date_updated": "2026-04-24T00:00:00"
+}
