@@ -159,6 +159,61 @@
             "outputs": [{"name": "component_as_tool", "display_name": "Tool", "method": "fetch_tools", "tool_mode": true}]
           }
         }
+      },
+      {
+        "id": "ChatInput-f16a3d",
+        "type": "ChatInput",
+        "position": {"x": 320, "y": 480},
+        "data": {
+          "id": "ChatInput-f16a3d",
+          "type": "ChatInput",
+          "showNode": true,
+          "node": {
+            "template": {
+              "input_value": {"name": "input_value", "display_name": "Input Value", "type": "message", "value": "", "required": true, "show": true, "advanced": false, "dynamic": true, "info": "The chat input message from the user."},
+              "sender": {"name": "sender", "display_name": "Sender", "type": "str", "value": "User", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Sender of the message (default: User)"},
+              "sender_name": {"name": "sender_name", "display_name": "Sender Name", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Name of the sender"},
+              "should_store_message": {"name": "should_store_message", "display_name": "Store Message", "type": "bool", "value": true, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Whether to store the message in chat history"},
+              "session_id": {"name": "session_id", "display_name": "Session ID", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Session identifier for chat continuity"},
+              "files": {"name": "files", "display_name": "Files", "type": "list", "value": [], "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Attached files"},
+              "_type": {"name": "_type", "display_name": "Type", "type": "str", "value": "ChatInput", "required": true, "show": false, "advanced": true}
+            },
+            "description": "Get chat inputs from the Playground.",
+            "display_name": "Chat Input",
+            "icon": "MessagesSquare",
+            "base_classes": ["Message"],
+            "outputs": [{"name": "message", "display_name": "Message", "method": "message_response", "types": ["Message"], "tool_mode": false}]
+          }
+        }
+      },
+      {
+        "id": "ChatOutput-3dcf91",
+        "type": "ChatOutput",
+        "position": {"x": 1320, "y": 480},
+        "data": {
+          "id": "ChatOutput-3dcf91",
+          "type": "ChatOutput",
+          "showNode": true,
+          "node": {
+            "template": {
+              "input_value": {"name": "input_value", "display_name": "Input Value", "type": "message", "value": "", "required": true, "show": true, "advanced": false, "input_types": ["Data", "DataFrame", "Message"], "info": "The message to display in chat."},
+              "should_store_message": {"name": "should_store_message", "display_name": "Store Message", "type": "bool", "value": true, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Whether to store the message in chat history"},
+              "sender": {"name": "sender", "display_name": "Sender", "type": "str", "value": "Machine", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Sender of the message (Machine)"},
+              "sender_name": {"name": "sender_name", "display_name": "Sender Name", "type": "str", "value": "Sacred Texts Agent", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Name of the sender"},
+              "session_id": {"name": "session_id", "display_name": "Session ID", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Session identifier for chat continuity"},
+              "background_color": {"name": "background_color", "display_name": "Background Color", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Background color for the message"},
+              "chat_icon": {"name": "chat_icon", "display_name": "Chat Icon", "type": "str", "value": "BookOpen", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Icon to display with the message"},
+              "text_color": {"name": "text_color", "display_name": "Text Color", "type": "str", "value": "", "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Text color for the message"},
+              "clean_data": {"name": "clean_data", "display_name": "Clean Data", "type": "bool", "value": true, "required": false, "show": true, "advanced": false, "tool_mode": false, "info": "Whether to clean the display data"},
+              "_type": {"name": "_type", "display_name": "Type", "type": "str", "value": "ChatOutput", "required": true, "show": false, "advanced": true}
+            },
+            "description": "Display a chat message in the Playground.",
+            "display_name": "Chat Output",
+            "icon": "MessagesSquare",
+            "base_classes": ["Message"],
+            "outputs": [{"name": "message", "display_name": "Message", "method": "message_response", "types": ["Message"], "tool_mode": false}]
+          }
+        }
       }
     ],
     "edges": []
