@@ -70,7 +70,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
             <ReactMarkdown
               components={{
                 p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-                code: ({ inline, className, children, ...props }) => {
+                code: ({ className, children, ...props }: any) => {
+                  const inline = !(className || '').includes('language-');
                   const match = /language-(\w+)/.exec(className || '');
                   return !inline ? (
                     <SyntaxHighlighter

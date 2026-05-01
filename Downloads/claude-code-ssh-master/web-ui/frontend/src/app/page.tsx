@@ -12,7 +12,8 @@ import { MenuIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
-  const { messages, connect, sidebarOpen, toggleSidebar } = useChatStore();
+  const { messages, sidebarOpen, toggleSidebar } = useChatStore();
+  const { connect } = useWebSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Connect to WebSocket on mount

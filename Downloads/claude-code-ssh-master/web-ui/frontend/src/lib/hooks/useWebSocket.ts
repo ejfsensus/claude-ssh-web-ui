@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api/client';
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const {
     setIsConnected,
     currentSessionId,
