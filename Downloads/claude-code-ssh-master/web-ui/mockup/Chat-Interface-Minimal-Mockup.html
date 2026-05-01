@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude SSH - Minimal Variant</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        :root {
+            /* Minimalist color palette - more restrained */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --border-color: #e5e7eb;
+            --border-light: #d1d5db;
+
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+
+            --accent-blue: #2563eb;
+            --accent-blue-hover: #1d4ed8;
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .mockup-container {
+            width: 100vw;
+            height: 100vh;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Minimal Header */
+        .header {
+            height: 56px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-button {
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.15s;
+        }
+
+        .header-button:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        /* Main Layout - No Sidebar */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 48px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .message {
+            display: flex;
+            gap: 16px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .message-avatar.assistant {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .message-avatar.user {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-text {
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--text-primary);
+            text-wrap: pretty;
+        }
+
+        .message-text p {
+            margin-bottom: 12px;
+        }
+
+        .message-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-text pre {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+
+        .message-text code {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 14px;
+        }
+
+        /* Input Area - Minimal */
+        .input-area {
+            padding: 24px 32px 32px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-box {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .input-box:focus-within {
+            border-color: var(--border-light);
+            box-shadow: var(--shadow-md), 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .chat-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            min-height: 24px;
+            max-height: 200px;
+            line-height: 1.5;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .input-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .icon-button {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 16px;
+        }
+
+        .icon-button:hover {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+        }
+
+        .send-button {
+            padding: 8px 16px;
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .send-button:hover {
+            background: var(--accent-blue-hover);
+        }
+
+        /* Floating Panels */
+        .floating-panel {
+            position: fixed;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            padding: 16px;
+            min-width: 280px;
+        }
+
+        .floating-panel.top-right {
+            top: 80px;
+            right: 32px;
+        }
+
+        .panel-header {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .panel-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .panel-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-item:last-child {
+            border-bottom: none;
+        }
+
+        .panel-item-name {
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .panel-item-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-light);
+        }
+
+        /* Typography */
+        strong {
+            font-weight: 600;
+        }
+
+        em {
+            font-style: italic;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        const mockMessages = [
+            {
+                id: 1,
+                role: 'assistant',
+                content: 'Hello! I\'m ready to help you build the web interface for Claude SSH. I can assist with:\n\n• **FastAPI backend setup** with WebSocket streaming\n• **Next.js frontend** with modern components\n• **Session management** and persistence\n• **File operations** and workspace integration\n• **Background process** monitoring\n\nWhat would you like to work on first?'
+            },
+            {
+                id: 2,
+                role: 'user',
+                content: 'Let\'s start with the FastAPI backend. How do I integrate it with the existing Claude Code CLI?'
+            },
+            {
+                id: 3,
+                role: 'assistant',
+                content: `Great choice! Here's how to integrate FastAPI with the Claude Code CLI:
+
+\`\`\`python
+import subprocess
+from fastapi import FastAPI, WebSocket
+from typing import AsyncIterator
+
+app = FastAPI()
+
+async def stream_claude_response(prompt: str) -> AsyncIterator[str]:
+    """Stream Claude Code CLI response"""
+    process = subprocess.Popen(
+        ['claude'],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    process.stdin.write(prompt + '\\n')
+    process.stdin.close()
+
+    for line in process.stdout:
+        yield line
+
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+
+            async for token in stream_claude_response(data):
+                await websocket.send_json({
+                    "type": "token",
+                    "content": token
+                })
+    finally:
+        await websocket.close()
+\`\`\`
+
+This approach:
+- Uses PTY for proper interactive sessions
+- Streams responses in real-time
+- Handles process lifecycle correctly`
+            },
+        ];
+
+        function Message({ message }) {
+            return (
+                <div className={`message ${message.role}`}>
+                    <div className={`message-avatar ${message.role}`}>
+                        {message.role === 'assistant' ? 'C' : 'U'}
+                    </div>
+                    <div className="message-content">
+                        <div className="message-text">
+                            {message.content.split('\n').map((line, idx) => {
+                                if (line.startsWith('```')) return null;
+                                if (line.includes('```python')) {
+                                    return <pre key={idx}><code>{line.replace('```python', '')}</code>;
+                                }
+                                if (line === '```') return <span key={idx} />;
+                                return <p key={idx}>{line}</p>;
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ChatInput() {
+            const [message, setMessage] = useState('');
+
+            const handleSend = () => {
+                if (message.trim()) {
+                    console.log('Send:', message);
+                    setMessage('');
+                }
+            };
+
+            return (
+                <div className="input-area">
+                    <div className="input-box">
+                        <textarea
+                            className="chat-input"
+                            placeholder="Message Claude..."
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }}
+                            rows={1}
+                        />
+                        <div className="input-footer">
+                            <div className="input-actions">
+                                <button className="icon-button" title="Attach file">📎</button>
+                                <button className="icon-button" title="Voice input">🎤</button>
+                            </div>
+                            <button className="send-button" onClick={handleSend}>
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function FloatingPanel() {
+            return (
+                <div className="floating-panel top-right">
+                    <div className="panel-header">Active Sessions</div>
+                    <div className="panel-content">
+                        <div className="panel-item">
+                            <div className="panel-item-name">Backend Setup</div>
+                            <div className="panel-item-status">Active</div>
+                        </div>
+                        <div className="panel-item">
+                            <div className="panel-item-name">Frontend Design</div>
+                            <div className="panel-item-status">Paused</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ChatArea() {
+            const [messages] = useState(mockMessages);
+            const messagesEndRef = useRef(null);
+
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, []);
+
+            return (
+                <div className="chat-area">
+                    <div className="messages-container">
+                        {messages.map(message => (
+                            <Message key={message.id} message={message} />
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    <ChatInput />
+                </div>
+            );
+        }
+
+        function App() {
+            return (
+                <div className="mockup-container">
+                    <div className="header">
+                        <div className="logo">Claude SSH</div>
+                        <div className="header-right">
+                            <button className="header-button">Sessions</button>
+                            <button className="header-button">Processes</button>
+                            <button className="header-button">Files</button>
+                            <button className="header-button">Settings</button>
+                        </div>
+                    </div>
+                    <div className="main-content">
+                        <ChatArea />
+                    </div>
+                    <FloatingPanel />
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

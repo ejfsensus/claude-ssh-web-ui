@@ -1,0 +1,8 @@
+.git/
+.gitignore
+.omc/
+.vscode/
+*.md
+!README.md
+LICENSE
+.dockerignore

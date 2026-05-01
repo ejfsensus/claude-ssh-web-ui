@@ -1,0 +1,8 @@
+---
+ignored:
+  # apt pin versions — impractical on rolling base image (node:24-slim)
+  - DL3008
+  # Last USER should not be root — s6-overlay requires root as PID 1
+  - DL3002
+  # Single quotes intentional — writes literal $HOME/$PATH to profile script
+  - SC2016

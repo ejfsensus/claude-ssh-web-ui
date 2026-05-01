@@ -1,0 +1,16 @@
+ ╔══════════════════════════════════════════╗
+ ║                                          ║
+ ║     ╔═╗┬  ┌─┐┬ ┬┌┬┐┌─┐  ╔═╗┌─┐┌┬┐┌─┐     ║
+ ║     ║  │  ├─┤│ │ ││├┤   ║  │ │ ││├┤      ║
+ ║     ╚═╝┴─┘┴ ┴└─┘─┴┘└─┘  ╚═╝└─┘─┴┘└─┘     ║
+ ║               SSH Edition                ║
+ ║                                          ║
+ ╚══════════════════════════════════════════╝
+
+ WARNING: Authorized access only.
+          All sessions are logged and monitored.
+
+ Type 'claude' to start Claude Code.
+ Use 'tmux' for persistent sessions across disconnects.
+
+ Commands: tmux new | tmux attach | tmux ls

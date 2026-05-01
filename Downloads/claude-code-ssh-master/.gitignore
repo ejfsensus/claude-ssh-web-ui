@@ -1,0 +1,17 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# OMC state
+.omc/
+
+# Plan files (development notes)
+*-plan.md
+
+# Environment files
+.env
+.env.*

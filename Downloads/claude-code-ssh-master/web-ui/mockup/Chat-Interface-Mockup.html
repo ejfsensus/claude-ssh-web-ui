@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude SSH - Web Interface Mockup</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        :root {
+            /* Modern color palette - avoiding AI slop purple gradients */
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141415;
+            --bg-tertiary: #1c1c1e;
+            --bg-hover: #252528;
+            --border-color: #2a2a2d;
+            --border-light: #3a3a3d;
+
+            --text-primary: #f5f5f5;
+            --text-secondary: #a1a1aa;
+            --text-tertiary: #71717a;
+
+            --accent-blue: #3b82f6;
+            --accent-blue-hover: #2563eb;
+            --accent-green: #22c55e;
+            --accent-orange: #f97316;
+            --accent-red: #ef4444;
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        .mockup-container {
+            width: 100vw;
+            height: 100vh;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            height: 60px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-button {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-button:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-light);
+        }
+
+        /* Main Layout */
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-section {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .session-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .session-item {
+            padding: 10px 12px;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .session-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .session-item.active {
+            background: var(--bg-hover);
+        }
+
+        .session-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .session-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .session-title {
+            font-size: 14px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .session-time {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .process-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .process-item {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .process-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .process-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .process-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--accent-green);
+        }
+
+        .process-status.running {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--accent-green);
+        }
+
+        .process-status.stopped {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+        }
+
+        .process-output {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Sans', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: var(--bg-primary);
+            padding: 8px;
+            border-radius: 4px;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message-avatar.assistant {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+        }
+
+        .message-avatar.user {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-role {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .message.user .message-role {
+            text-align: right;
+        }
+
+        .message-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .message-text pre {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            overflow-x: auto;
+        }
+
+        .message-text code {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Sans', monospace;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .message-text p {
+            margin-bottom: 12px;
+        }
+
+        .message-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-attachments {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .attachment-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .attachment-icon {
+            font-size: 14px;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 24px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .input-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .input-box {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            transition: all 0.2s;
+        }
+
+        .input-box:focus-within {
+            border-color: var(--border-light);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .textarea-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            min-height: 24px;
+            max-height: 200px;
+            line-height: 1.5;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .input-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .input-button:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .input-button.primary {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+            margin-left: auto;
+        }
+
+        .input-button.primary:hover {
+            background: var(--accent-blue-hover);
+        }
+
+        .file-upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload-zone:hover {
+            border-color: var(--border-light);
+            background: var(--bg-hover);
+        }
+
+        .file-upload-zone.dragover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-light);
+        }
+
+        /* Typography improvements (huashu-design principle) */
+        .message-text {
+            text-wrap: pretty;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* MCP Status */
+        .mcp-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--accent-green);
+        }
+
+        .mcp-icon {
+            font-size: 14px;
+        }
+
+        /* File browser */
+        .file-browser {
+            padding: 16px;
+        }
+
+        .file-browser-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .file-browser-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .file-icon {
+            font-size: 14px;
+            color: var(--text-tertiary);
+        }
+
+        .file-name {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .file-size {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Mock data
+        const mockSessions = [
+            { id: 1, title: 'Project Setup Discussion', time: '2 hours ago', active: true },
+            { id: 2, title: 'Code Review - API', time: 'Yesterday', active: false },
+            { id: 3, title: 'Database Schema Design', time: '3 days ago', active: false },
+        ];
+
+        const mockProcesses = [
+            {
+                id: 1,
+                name: 'npm run dev',
+                status: 'running',
+                output: '✓ Ready in 1.2s\n○ Local: http://localhost:3000'
+            },
+            {
+                id: 2,
+                name: 'pytest tests/',
+                status: 'stopped',
+                output: '✓ 15 passed, 0 failed in 2.3s'
+            },
+        ];
+
+        const mockMessages = [
+            {
+                id: 1,
+                role: 'user',
+                content: 'Help me set up a FastAPI backend with WebSocket support for streaming Claude responses',
+                attachments: ['backend.py']
+            },
+            {
+                id: 2,
+                role: 'assistant',
+                content: `I'll help you create a FastAPI backend with WebSocket support. Here's a complete implementation:
+
+\`\`\`python
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import HTMLResponse
+import subprocess
+
+app = FastAPI()
+
+@app.websocket("/ws/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # Stream response from Claude Code CLI
+            process = subprocess.Popen(
+                ['claude', data],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+
+            for line in process.stdout:
+                await websocket.send_json({
+                    "type": "token",
+                    "content": line
+                })
+    finally:
+        await websocket.close()
+\`\`\`
+
+This implementation provides real-time streaming of Claude's responses through the WebSocket connection.`,
+            },
+            {
+                id: 3,
+                role: 'user',
+                content: 'Great! Now how do I handle file uploads and integrate with the workspace?'
+            },
+        ];
+
+        const mockFiles = [
+            { name: 'backend/', type: 'folder', size: '-' },
+            { name: 'frontend/', type: 'folder', size: '-' },
+            { name: 'Dockerfile', type: 'file', size: '3.2 KB' },
+            { name: 'package.json', type: 'file', size: '1.1 KB' },
+            { name: 'README.md', type: 'file', size: '4.5 KB' },
+        ];
+
+        // Components
+        function Header() {
+            return (
+                <div className="header">
+                    <div className="header-left">
+                        <div className="logo">
+                            <div className="logo-icon">C</div>
+                            <span>Claude SSH</span>
+                        </div>
+                        <div className="status-indicator">
+                            <div className="status-dot"></div>
+                            <span>Connected</span>
+                        </div>
+                        <div className="mcp-status">
+                            <span className="mcp-icon">⚡</span>
+                            <span>3 MCP Servers Active</span>
+                        </div>
+                    </div>
+                    <div className="header-right">
+                        <button className="header-button">
+                            <span>⚙️</span>
+                            Settings
+                        </button>
+                        <button className="header-button">
+                            <span>📊</span>
+                            Monitor
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function Sidebar() {
+            const [sessions, setSessions] = useState(mockSessions);
+            const [processes, setProcesses] = useState(mockProcesses);
+
+            return (
+                <div className="sidebar">
+                    <div className="sidebar-section">
+                        <div className="sidebar-title">Sessions</div>
+                        <div className="session-list">
+                            {sessions.map(session => (
+                                <div
+                                    key={session.id}
+                                    className={`session-item ${session.active ? 'active' : ''}`}
+                                >
+                                    <div className="session-icon">💬</div>
+                                    <div className="session-info">
+                                        <div className="session-title">{session.title}</div>
+                                        <div className="session-time">{session.time}</div>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="session-item" style={{ color: 'var(--accent-blue)' }}>
+                                <div className="session-icon">➕</div>
+                                <div className="session-title">New Session</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="sidebar-section">
+                        <div className="sidebar-title">Background Processes</div>
+                        <div className="process-list">
+                            {processes.map(process => (
+                                <div key={process.id} className="process-item">
+                                    <div className="process-header">
+                                        <div className="process-name">
+                                            <span>▶</span>
+                                            {process.name}
+                                        </div>
+                                        <div className={`process-status ${process.status}`}>
+                                            {process.status}
+                                        </div>
+                                    </div>
+                                    <div className="process-output">{process.output}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="sidebar-section" style={{ flex: 1, overflow: 'auto' }}>
+                        <div className="sidebar-title">Workspace Files</div>
+                        <div className="file-list">
+                            {mockFiles.map((file, idx) => (
+                                <div key={idx} className="file-item">
+                                    <div className="file-icon">{file.type === 'folder' ? '📁' : '📄'}</div>
+                                    <div className="file-name">{file.name}</div>
+                                    <div className="file-size">{file.size}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Message({ message }) {
+            return (
+                <div className={`message ${message.role}`}>
+                    <div className={`message-avatar ${message.role}`}>
+                        {message.role === 'assistant' ? 'C' : 'U'}
+                    </div>
+                    <div className="message-content">
+                        <div className="message-role">
+                            {message.role === 'assistant' ? 'Claude' : 'You'}
+                        </div>
+                        {message.attachments && (
+                            <div className="message-attachments">
+                                {message.attachments.map((file, idx) => (
+                                    <div key={idx} className="attachment-badge">
+                                        <span className="attachment-icon">📎</span>
+                                        {file}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="message-text">
+                            {message.content.split('\n').map((line, idx) => {
+                                if (line.startsWith('```')) {
+                                    return null;
+                                }
+                                if (line.includes('```python')) {
+                                    return <pre key={idx}><code>{line.replace('```python', '')}</code>;
+                                }
+                                if (line === '```') {
+                                    return <span key={idx} />;
+                                }
+                                return <p key={idx}>{line}</p>;
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ChatInput() {
+            const [message, setMessage] = useState('');
+            const [showFileUpload, setShowFileUpload] = useState(false);
+            const textareaRef = useRef(null);
+
+            const handleSend = () => {
+                if (message.trim()) {
+                    console.log('Sending:', message);
+                    setMessage('');
+                }
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            };
+
+            return (
+                <div className="input-area">
+                    <div className="input-container">
+                        {showFileUpload && (
+                            <div className="file-upload-zone">
+                                📁 Drag & drop files here or click to browse
+                                <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                                    Max 50MB per file • Code, text, images, PDFs
+                                </div>
+                            </div>
+                        )}
+                        <div className="input-box">
+                            <div className="textarea-wrapper">
+                                <textarea
+                                    ref={textareaRef}
+                                    className="chat-input"
+                                    placeholder="Message Claude..."
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    rows={1}
+                                />
+                            </div>
+                            <div className="input-actions">
+                                <button
+                                    className="input-button"
+                                    onClick={() => setShowFileUpload(!showFileUpload)}
+                                >
+                                    <span>📎</span>
+                                    Attach
+                                </button>
+                                <button className="input-button">
+                                    <span>🎤</span>
+                                    Voice
+                                </button>
+                                <button className="input-button primary" onClick={handleSend}>
+                                    <span>Send</span>
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ChatArea() {
+            const [messages, setMessages] = useState(mockMessages);
+            const messagesEndRef = useRef(null);
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            return (
+                <div className="chat-area">
+                    <div className="messages-container">
+                        {messages.map(message => (
+                            <Message key={message.id} message={message} />
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    <ChatInput />
+                </div>
+            );
+        }
+
+        function App() {
+            return (
+                <div className="mockup-container">
+                    <Header />
+                    <div className="main-content">
+                        <Sidebar />
+                        <ChatArea />
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

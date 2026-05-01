@@ -1,0 +1,28 @@
+[DEFAULT]
+# Use hostsdeny since Railway lacks NET_ADMIN for iptables
+banaction = hostsdeny-claude
+bantime = 1h
+findtime = 10m
+maxretry = 3
+allowipv6 = auto
+# Log to file for container visibility
+logtarget = /var/log/fail2ban.log
+
+[sshd]
+enabled = true
+port = 22
+filter = sshd[mode=aggressive]
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 3600
+findtime = 600
+
+# Recidive jail — ban repeat offenders for 1 week
+[recidive]
+enabled = true
+filter = recidive
+logpath = /var/log/fail2ban.log
+banaction = hostsdeny-claude
+bantime = 1w
+findtime = 1d
+maxretry = 3
