@@ -123,9 +123,22 @@ COPY web-ui/backend/           /home/claude/web-ui/backend/
 # ---------- web-ui frontend (Next.js) -----------------------------------------
 COPY web-ui/frontend/          /home/claude/web-ui/frontend/
 WORKDIR /home/claude/web-ui/frontend
-RUN npm ci && npm run build
+RUN echo "=== Installing frontend dependencies ===" && \
+  npm ci && \
+  echo "=== Building Next.js frontend ===" && \
+  npm run build && \
+  echo "=== Verifying build output ===" && \
+  ls -la /home/claude/web-ui/frontend/out && \
+  test -f /home/claude/web-ui/frontend/out/index.html && \
+  echo "✅ Frontend build successful - index.html exists" || \
+  (echo "❌ Frontend build failed - index.html not found" && exit 1)
 WORKDIR /
-RUN chown -R claude:claude /home/claude/web-ui
+RUN chown -R claude:claude /home/claude/web-ui && \
+  echo "=== Final build directory check ===" && \
+  ls -la /home/claude/web-ui/frontend/out && \
+  test -f /home/claude/web-ui/frontend/out/index.html && \
+  echo "✅ Build directory properly configured" || \
+  (echo "❌ Build directory check failed" && exit 1)
 
 # ---------- scripts -----------------------------------------------------------
 COPY scripts/init-setup.sh    /etc/s6-overlay/scripts/init-setup.sh
