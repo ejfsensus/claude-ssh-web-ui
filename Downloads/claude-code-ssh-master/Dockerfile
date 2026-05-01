@@ -61,10 +61,8 @@ RUN pip3 install --no-cache-dir --break-system-packages \
         uvicorn[standard]==0.32.0 \
         websockets==13.0 \
         python-multipart==0.0.12 \
-        pydantic==2.9.0 \
         aiofiles==24.1.0 \
         python-dotenv==1.0.1 \
-        prisma==0.13.1 \
         passlib[bcrypt]==1.7.4 \
         python-jose[cryptography]==3.3.0 \
         slowapi==0.1.9
@@ -118,6 +116,10 @@ COPY tmux.conf                /etc/tmux.conf
 
 # ---------- s6-overlay service definitions ------------------------------------
 COPY s6-overlay/s6-rc.d/      /etc/s6-overlay/s6-rc.d/
+
+# ---------- web-ui backend ----------------------------------------------------
+COPY web-ui/backend/           /home/claude/web-ui/backend/
+RUN chown -R claude:claude /home/claude/web-ui
 
 # ---------- scripts -----------------------------------------------------------
 COPY scripts/init-setup.sh    /etc/s6-overlay/scripts/init-setup.sh

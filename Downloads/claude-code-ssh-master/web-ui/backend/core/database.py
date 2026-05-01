@@ -1,213 +1,292 @@
 """
-Database connection and models using Prisma.
+Database connection and models using SQLite.
 """
 
-from prisma import Prisma
-from prisma.models import (
-    Session,
-    Message,
-    FileReference,
-    BackgroundProcess,
-)
+import sqlite3
 import logging
-from typing import Optional
+import json
+from typing import Optional, List
 from datetime import datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Global Prisma client instance
-prisma = None
+# Database path
+DB_PATH = "/data/web-ui/sessions.db"
 
 
-async def init_db():
-    """Initialize database connection and create tables."""
-    global prisma
+def get_db():
+    """Get database connection."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-    try:
-        prisma = Prisma(
-            datasource={
-                "url": "sqlite+aiosqlite:///data/web-ui/sessions.db"
-            }
+
+def init_db():
+    """Initialize database and create tables."""
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Create sessions table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
+    """)
 
-        # Connect and create tables if they don't exist
-        await prisma.connect()
+    # Create messages table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            attachments TEXT DEFAULT '[]',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+        )
+    """)
 
-        # Run migrations (creates tables)
-        # Note: In production, you'd run prisma migrate separately
-        # For this demo, we'll let Prisma auto-create tables
+    # Create processes table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS processes (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            command TEXT,
+            session_id TEXT,
+            status TEXT NOT NULL,
+            output TEXT,
+            exit_code INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
-        logger.info("Database connected successfully")
+    conn.commit()
+    conn.close()
 
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        raise
-
-
-async def get_db():
-    """Get database client instance."""
-    if prisma is None:
-        await init_db()
-
-    return prisma
+    logger.info("Database initialized successfully")
 
 
 # Session operations
-async def create_session(session_id: str, title: str = "New Session") -> Session:
+def create_session(session_id: str, title: str = "New Session"):
     """Create a new session."""
-    db = await get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
-    session = await db.session.create(
-        data={
-            "id": session_id,
-            "title": title,
-            "createdAt": datetime.utcnow(),
-            "lastActiveAt": datetime.utcnow(),
-        }
+    cursor.execute(
+        "INSERT INTO sessions (id, title, created_at, last_active_at) VALUES (?, ?, ?, ?)",
+        (session_id, title, datetime.utcnow(), datetime.utcnow())
     )
+
+    conn.commit()
+    conn.close()
 
     logger.info(f"Created session: {session_id}")
-    return session
+
+    return {
+        "id": session_id,
+        "title": title,
+        "createdAt": datetime.utcnow().isoformat(),
+        "lastActiveAt": datetime.utcnow().isoformat()
+    }
 
 
-async def get_session(session_id: str) -> Optional[Session]:
+def get_session(session_id: str) -> Optional[dict]:
     """Get a session by ID."""
-    db = await get_db()
-    return await db.session.find_unique(where={"id": session_id})
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
+    row = cursor.fetchone()
+
+    conn.close()
+
+    if row:
+        return dict(row)
+    return None
 
 
-async def update_session_activity(session_id: str) -> Session:
-    """Update session last active timestamp."""
-    db = await get_db()
+def list_sessions(limit: int = 50) -> List[dict]:
+    """List all sessions."""
+    conn = get_db()
+    cursor = conn.cursor()
 
-    session = await db.session.update(
-        where={"id": session_id},
-        data={"lastActiveAt": datetime.utcnow()}
+    cursor.execute(
+        "SELECT * FROM sessions ORDER BY last_active_at DESC LIMIT ?",
+        (limit,)
     )
 
-    return session
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
 
 
-async def list_sessions(limit: int = 50) -> list[Session]:
-    """List all sessions, ordered by last active."""
-    db = await get_db()
-
-    sessions = await db.session.find_many(
-        take=limit,
-        order={"lastActiveAt": "desc"}
-    )
-
-    return sessions
-
-
-async def delete_session(session_id: str) -> bool:
+def delete_session(session_id: str) -> bool:
     """Delete a session and all its messages."""
-    db = await get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
     # Delete associated messages first
-    await db.message.delete_many(where={"sessionId": session_id})
+    cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
 
     # Delete the session
-    await db.session.delete(where={"id": session_id})
+    cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+
+    conn.commit()
+    conn.close()
 
     logger.info(f"Deleted session: {session_id}")
     return True
 
 
+def update_session_activity(session_id: str):
+    """Update session last active timestamp."""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "UPDATE sessions SET last_active_at = ? WHERE id = ?",
+        (datetime.utcnow(), session_id)
+    )
+
+    conn.commit()
+    conn.close()
+
+
 # Message operations
-async def create_message(
+def create_message(
     session_id: str,
     role: str,
     content: str,
-    attachments: list[str] = None
-) -> Message:
+    attachments: List[str] = None
+) -> dict:
     """Create a new message."""
-    db = await get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
-    message = await db.message.create(
-        data={
-            "sessionId": session_id,
-            "role": role,
-            "content": content,
-            "attachments": attachments or [],
-            "createdAt": datetime.utcnow(),
-        }
+    message_id = str(int(datetime.utcnow().timestamp() * 1000))
+
+    cursor.execute(
+        """INSERT INTO messages (id, session_id, role, content, attachments, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (message_id, session_id, role, content, json.dumps(attachments or []), datetime.utcnow())
     )
+
+    conn.commit()
+    conn.close()
 
     # Update session activity
-    await update_session_activity(session_id)
+    update_session_activity(session_id)
 
-    return message
+    return {
+        "id": message_id,
+        "sessionId": session_id,
+        "role": role,
+        "content": content,
+        "attachments": attachments or [],
+        "createdAt": datetime.utcnow().isoformat()
+    }
 
 
-async def get_messages(session_id: str, limit: int = 100) -> list[Message]:
+def get_messages(session_id: str, limit: int = 100) -> List[dict]:
     """Get messages for a session."""
-    db = await get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
-    messages = await db.message.find_many(
-        where={"sessionId": session_id},
-        take=limit,
-        order={"createdAt": "asc"}
+    cursor.execute(
+        """SELECT * FROM messages WHERE session_id = ?
+           ORDER BY created_at ASC LIMIT ?""",
+        (session_id, limit)
     )
 
-    return messages
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
 
 
 # Background process operations
-async def create_process(
+def create_process(
     process_id: str,
     name: str,
     command: str,
     session_id: str = None
-) -> BackgroundProcess:
+) -> dict:
     """Create a new background process record."""
-    db = await get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
-    process = await db.backgroundprocess.create(
-        data={
-            "id": process_id,
-            "name": name,
-            "command": command,
-            "sessionId": session_id,
-            "status": "starting",
-            "createdAt": datetime.utcnow(),
-        }
+    cursor.execute(
+        """INSERT INTO processes (id, name, command, session_id, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (process_id, name, command, session_id, "starting", datetime.utcnow())
     )
 
+    conn.commit()
+    conn.close()
+
     logger.info(f"Created process: {process_id}")
-    return process
+
+    return {
+        "id": process_id,
+        "name": name,
+        "command": command,
+        "sessionId": session_id,
+        "status": "starting",
+        "createdAt": datetime.utcnow().isoformat()
+    }
 
 
-async def update_process_status(
+def update_process_status(
     process_id: str,
     status: str,
     output: str = None
-) -> BackgroundProcess:
+) -> dict:
     """Update process status and output."""
-    db = await get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
-    update_data = {"status": status}
+    update_fields = ["status = ?", "updatedAt = ?"]
+    update_values = [status, datetime.utcnow().isoformat()]
+
     if output is not None:
-        update_data["output"] = output
+        update_fields.append("output = ?")
+        update_values.append(output)
 
     if status in ["completed", "failed", "stopped"]:
-        update_data["exitCode"] = 0 if status == "completed" else 1
+        update_fields.append("exit_code = ?")
+        update_values.append(0 if status == "completed" else 1)
 
-    process = await db.backgroundprocess.update(
-        where={"id": process_id},
-        data=update_data
+    update_values.append(process_id)
+
+    cursor.execute(
+        f"UPDATE processes SET {', '.join(update_fields)} WHERE id = ?",
+        update_values
     )
 
-    return process
+    conn.commit()
+    conn.close()
+
+    return {"id": process_id, "status": status}
 
 
-async def get_active_processes() -> list[BackgroundProcess]:
+def get_active_processes() -> List[dict]:
     """Get all active/running processes."""
-    db = await get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
-    processes = await db.backgroundprocess.find_many(
-        where={"status": {"in": ["starting", "running"]}},
-        order={"createdAt": "desc"}
+    cursor.execute(
+        """SELECT * FROM processes WHERE status IN ('starting', 'running')
+           ORDER BY created_at DESC"""
     )
 
-    return processes
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]

@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Claude SSH Web UI backend...")
     # Initialize database
     from core.database import init_db
-    await init_db()
+    init_db()
     logger.info("Database initialized")
 
     # Initialize web-ui directories
