@@ -119,7 +119,17 @@ COPY s6-overlay/s6-rc.d/      /etc/s6-overlay/s6-rc.d/
 
 # ---------- web-ui backend ----------------------------------------------------
 COPY web-ui/backend/           /home/claude/web-ui/backend/
+
+# ---------- web-ui frontend (Next.js) -----------------------------------------
+COPY web-ui/frontend/          /home/claude/web-ui/frontend/
+WORKDIR /home/claude/web-ui/frontend
+RUN npm ci && npm run build
 RUN chown -R claude:claude /home/claude/web-ui
+
+# ---------- scripts -----------------------------------------------------------
+COPY scripts/init-setup.sh    /etc/s6-overlay/scripts/init-setup.sh
+COPY scripts/stderr-to-json.sh /usr/local/bin/stderr-to-json
+RUN chmod +x /etc/s6-overlay/scripts/init-setup.sh /usr/local/bin/stderr-to-json
 
 # ---------- scripts -----------------------------------------------------------
 COPY scripts/init-setup.sh    /etc/s6-overlay/scripts/init-setup.sh

@@ -2,16 +2,31 @@
  * API client for communicating with FastAPI backend
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+// Use relative URLs when deployed with backend, otherwise use localhost
+const getBaseURL = () => {
+  if (typeof window !== 'undefined') {
+    // Use the same origin if deployed together
+    return window.location.origin;
+  }
+  return 'http://localhost:8080';
+};
+
+const getWSURL = () => {
+  if (typeof window !== 'undefined') {
+    // Convert http(s) to ws(s)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
+  }
+  return 'ws://localhost:8080';
+};
 
 export class APIClient {
   private baseURL: string;
   private wsURL: string;
 
-  constructor(baseURL: string = API_URL, wsURL: string = WS_URL) {
-    this.baseURL = baseURL;
-    this.wsURL = wsURL;
+  constructor() {
+    this.baseURL = getBaseURL();
+    this.wsURL = getWSURL();
   }
 
   async get(endpoint: string) {

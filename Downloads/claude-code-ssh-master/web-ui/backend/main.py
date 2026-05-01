@@ -6,10 +6,12 @@ Wraps Claude Code CLI with WebSocket streaming and REST API.
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
 from typing import Dict
+from pathlib import Path
 
 from core.config import settings
 from core.security import get_password_hash, verify_password, create_access_token
@@ -76,6 +78,14 @@ app.include_router(sessions_router, prefix="/api", tags=["sessions"])
 app.include_router(files_router, prefix="/api", tags=["files"])
 app.include_router(processes_router, prefix="/api", tags=["processes"])
 
+# Mount static files from Next.js build
+frontend_build_path = Path("/home/claude/web-ui/frontend/out")
+if frontend_build_path.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_build_path / "static")), name="static")
+    logger.info(f"Serving static files from {frontend_build_path}")
+else:
+    logger.warning(f"Frontend build not found at {frontend_build_path}")
+
 
 # Active WebSocket connections
 active_connections: Dict[str, WebSocket] = {}
@@ -93,7 +103,25 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    """Root endpoint - API info."""
+    """Root endpoint - serve frontend."""
+    frontend_build_path = Path("/home/claude/web-ui/frontend/out")
+    index_file = frontend_build_path / "index.html"
+
+    if index_file.exists():
+        return FileResponse(index_file)
+    else:
+        return {
+            "name": "Claude SSH Web UI API",
+            "version": "1.0.0",
+            "docs": "/docs",
+            "health": "/api/health",
+            "status": "frontend_not_built"
+        }
+
+
+@app.get("/api")
+async def api_info():
+    """API info endpoint."""
     return {
         "name": "Claude SSH Web UI API",
         "version": "1.0.0",
