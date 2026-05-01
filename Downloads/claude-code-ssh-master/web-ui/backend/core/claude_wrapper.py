@@ -59,10 +59,10 @@ class ClaudeWrapper:
                 stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout
                 cwd=self.workspace,
                 env={
-                    "PATH": "/usr/local/bin:/usr/bin:/bin",
+                    "PATH": "/home/claude/.local/bin:/usr/local/bin:/usr/bin:/bin",
                     "HOME": str(Path(self.workspace).parent),
                     "LANG": "en_US.UTF-8",
-                    "ANTHROPIC_API_KEY": str(Path(self.workspace).parent / ".claude" / ".env"),
+                    "USER": "claude",
                 }
             )
 

@@ -123,7 +123,8 @@ COPY web-ui/backend/           /home/claude/web-ui/backend/
 # ---------- web-ui frontend (Next.js) -----------------------------------------
 COPY web-ui/frontend/          /home/claude/web-ui/frontend/
 WORKDIR /home/claude/web-ui/frontend
-RUN npm install && npm run build
+RUN npm ci && npm run build
+WORKDIR /
 RUN chown -R claude:claude /home/claude/web-ui
 
 # ---------- scripts -----------------------------------------------------------
