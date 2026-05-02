@@ -2,7 +2,14 @@
  * API client for communicating with the FastAPI backend.
  */
 
-import type { AttachmentDescriptor, RuntimeStatus, WorkspaceFile } from '@/lib/store/chatStore';
+import type {
+  AttachmentDescriptor,
+  ConsoleEvent,
+  MCPServer,
+  RuntimeStatus,
+  SkillItem,
+  WorkspaceFile,
+} from '@/lib/store/chatStore';
 
 const getBaseURL = () => {
   const configuredURL = process.env.NEXT_PUBLIC_API_URL;
@@ -141,6 +148,18 @@ export class APIClient {
 
   async listProcesses() {
     return this.get('/processes');
+  }
+
+  async listSkills(): Promise<{ skills: SkillItem[]; roots: Array<{ path: string; exists: boolean }>; checkedAt: string }> {
+    return this.get('/skills');
+  }
+
+  async listMcp(): Promise<{ status: string; servers: MCPServer[]; raw: string; command: string; checkedAt: string }> {
+    return this.get('/mcp');
+  }
+
+  async listConsoleEvents(limit = 100): Promise<{ events: ConsoleEvent[]; checkedAt: string }> {
+    return this.get(`/console/events?limit=${limit}`);
   }
 }
 

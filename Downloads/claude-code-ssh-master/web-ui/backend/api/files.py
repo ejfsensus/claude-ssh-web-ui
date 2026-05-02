@@ -10,6 +10,7 @@ import uuid
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
+from core.agent_console import add_console_event
 from core.config import settings
 
 router = APIRouter()
@@ -77,7 +78,7 @@ async def upload_file(file: UploadFile = File(...)):
                 raise HTTPException(status_code=413, detail="Upload is too large")
             output.write(chunk)
 
-    return {
+    response = {
         "file": {
             "id": file_id,
             "name": original_name,
@@ -87,6 +88,13 @@ async def upload_file(file: UploadFile = File(...)):
             "uploadedAt": datetime.utcnow().isoformat(),
         }
     }
+    add_console_event(
+        kind="files",
+        label=f"File uploaded: {original_name}",
+        level="success",
+        metadata={"size": size, "path": str(destination)},
+    )
+    return response
 
 
 @router.get("/files/list")

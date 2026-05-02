@@ -11,6 +11,8 @@ export interface AttachmentDescriptor {
   size: number;
   mimeType?: string | null;
   uploadedAt?: string;
+  description?: string;
+  source?: string;
 }
 
 export interface Message {
@@ -66,6 +68,33 @@ export interface ActivityItem {
   createdAt: Date;
 }
 
+export interface SkillItem {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+  directory: string;
+  source: string;
+  updatedAt?: string;
+}
+
+export interface MCPServer {
+  name: string;
+  status: string;
+  command?: string;
+  source?: string;
+}
+
+export interface ConsoleEvent {
+  id: string;
+  kind: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  label: string;
+  detail?: string | null;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+}
+
 interface PendingExecuteRequest {
   content: string;
   attachments: AttachmentDescriptor[];
@@ -113,6 +142,14 @@ interface ChatState {
 
   activity: ActivityItem[];
   addActivity: (item: Omit<ActivityItem, 'id' | 'createdAt'>) => void;
+
+  skills: SkillItem[];
+  setSkills: (skills: SkillItem[]) => void;
+  mcpServers: MCPServer[];
+  setMcpServers: (servers: MCPServer[]) => void;
+  consoleEvents: ConsoleEvent[];
+  setConsoleEvents: (events: ConsoleEvent[]) => void;
+  addConsoleEvent: (event: Omit<ConsoleEvent, 'id' | 'createdAt'> & { id?: string; createdAt?: Date | string }) => void;
 
   processes: Process[];
   setProcesses: (processes: Process[]) => void;
@@ -218,6 +255,30 @@ export const useChatStore = create<ChatState>()(
             { ...item, id: crypto.randomUUID(), createdAt: new Date() },
             ...state.activity,
           ].slice(0, 8),
+        })),
+
+      skills: [],
+      setSkills: (skills) => set({ skills }),
+      mcpServers: [],
+      setMcpServers: (servers) => set({ mcpServers: servers }),
+      consoleEvents: [],
+      setConsoleEvents: (events) =>
+        set({
+          consoleEvents: events.map((event) => ({
+            ...event,
+            createdAt: reviveDate(event.createdAt),
+          })),
+        }),
+      addConsoleEvent: (event) =>
+        set((state) => ({
+          consoleEvents: [
+            {
+              ...event,
+              id: event.id || crypto.randomUUID(),
+              createdAt: event.createdAt ? reviveDate(event.createdAt) : new Date(),
+            },
+            ...state.consoleEvents.filter((item) => item.id !== event.id),
+          ].slice(0, 120),
         })),
 
       processes: [],

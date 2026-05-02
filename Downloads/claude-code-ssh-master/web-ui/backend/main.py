@@ -15,6 +15,7 @@ from pathlib import Path
 from core.config import settings
 from core.claude_wrapper import get_claude
 from api.chat import router as chat_router
+from api.context import router as context_router
 from api.files import router as files_router
 from api.processes import router as processes_router
 
@@ -73,6 +74,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(context_router, prefix="/api", tags=["context"])
 app.include_router(files_router, prefix="/api", tags=["files"])
 app.include_router(processes_router, prefix="/api", tags=["processes"])
 
@@ -124,6 +126,9 @@ async def status_check():
             "chat": True,
             "uploads": True,
             "workspacePreview": True,
+            "skills": True,
+            "mcpList": True,
+            "agentConsole": True,
             "voice": False,
             "mutationsRequireConfirmation": True,
         },

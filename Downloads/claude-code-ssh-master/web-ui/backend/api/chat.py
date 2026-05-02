@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
+from core.agent_console import add_console_event
 from core.claude_wrapper import get_claude
 from core.database import (
     create_message,
@@ -91,16 +92,37 @@ def _claude_prompt(content: str, mode: str, attachments: list) -> str:
 
     parts = [mode_guidance, "", content]
     if attachments:
-        parts.extend(["", "Attached files available to inspect:"])
-        for attachment in attachments:
-            if isinstance(attachment, dict):
-                name = attachment.get("name", "attachment")
+        skill_attachments = [
+            attachment for attachment in attachments
+            if isinstance(attachment, dict) and attachment.get("mimeType") == "application/x-skill"
+        ]
+        file_attachments = [
+            attachment for attachment in attachments
+            if not (isinstance(attachment, dict) and attachment.get("mimeType") == "application/x-skill")
+        ]
+
+        if skill_attachments:
+            parts.extend(["", "Selected skills to consider:"])
+            for attachment in skill_attachments:
+                name = attachment.get("name", "skill")
                 path = attachment.get("path", "")
-                size = attachment.get("size")
-                size_label = f", size: {size} bytes" if isinstance(size, int) else ""
-                parts.append(f"- {name}: {path}{size_label}")
-            else:
-                parts.append(f"- {attachment}")
+                description = attachment.get("description", "")
+                parts.append(f"- {name}: {path}")
+                if description:
+                    parts.append(f"  Summary: {description}")
+
+        if file_attachments:
+            parts.extend(["", "Attached files available to inspect:"])
+
+            for attachment in file_attachments:
+                if isinstance(attachment, dict):
+                    name = attachment.get("name", "attachment")
+                    path = attachment.get("path", "")
+                    size = attachment.get("size")
+                    size_label = f", size: {size} bytes" if isinstance(size, int) else ""
+                    parts.append(f"- {name}: {path}{size_label}")
+                else:
+                    parts.append(f"- {attachment}")
 
     return "\n".join(parts)
 
@@ -181,6 +203,7 @@ async def websocket_chat(websocket: WebSocket):
     connection_id = str(uuid.uuid4())
     active_connections[connection_id] = websocket
     logger.info("WebSocket connection established: %s", connection_id)
+    add_console_event("websocket", "WebSocket connected", metadata={"connectionId": connection_id})
 
     try:
         await websocket.send_json({
@@ -201,6 +224,7 @@ async def websocket_chat(websocket: WebSocket):
                 approved = data.get("approved", False)
 
                 if not content:
+                    add_console_event("chat", "Rejected empty message", level="warning")
                     await websocket.send_json({
                         "type": "error",
                         "message": "Message content is required",
@@ -209,6 +233,12 @@ async def websocket_chat(websocket: WebSocket):
                     continue
 
                 if mode == "execute" and not approved:
+                    add_console_event(
+                        "approval",
+                        "Execute request waiting for approval",
+                        level="warning",
+                        metadata={"clientActionId": client_action_id, "sessionId": session_id},
+                    )
                     await websocket.send_json({
                         "type": "needs_approval",
                         "message": "Confirm this execute-mode request before it reaches Claude Code.",
@@ -227,8 +257,18 @@ async def websocket_chat(websocket: WebSocket):
                         "sessionId": session_id,
                         "clientActionId": client_action_id,
                     })
+                    add_console_event("session", "Session created", metadata={"sessionId": session_id})
 
                 create_message(session_id, "user", content, attachments)
+                add_console_event(
+                    "chat",
+                    f"Message received in {mode} mode",
+                    metadata={
+                        "sessionId": session_id,
+                        "clientActionId": client_action_id,
+                        "attachments": len(attachments) if isinstance(attachments, list) else 0,
+                    },
+                )
 
                 claude = await get_claude()
                 response_buffer = ""
@@ -238,11 +278,16 @@ async def websocket_chat(websocket: WebSocket):
                     "sessionId": session_id,
                     "clientActionId": client_action_id,
                 })
+                add_console_event("agent", "Claude Code thinking", metadata={"sessionId": session_id})
 
                 prompt = _claude_prompt(content, mode, attachments)
+                stream_started = False
 
                 async for token in claude.stream_response(prompt, session_id):
                     response_buffer += token
+                    if not stream_started:
+                        stream_started = True
+                        add_console_event("agent", "Claude Code streaming response", metadata={"sessionId": session_id})
                     await websocket.send_json({
                         "type": "token",
                         "content": token,
@@ -251,6 +296,12 @@ async def websocket_chat(websocket: WebSocket):
                     })
 
                 create_message(session_id, "assistant", response_buffer, [])
+                add_console_event(
+                    "agent",
+                    "Response complete",
+                    level="success",
+                    metadata={"sessionId": session_id, "characters": len(response_buffer)},
+                )
 
                 await websocket.send_json({
                     "type": "done",
@@ -262,6 +313,7 @@ async def websocket_chat(websocket: WebSocket):
                 await websocket.send_json({"type": "pong"})
 
             else:
+                add_console_event("websocket", f"Unknown message type: {message_type}", level="warning")
                 await websocket.send_json({
                     "type": "error",
                     "message": f"Unknown message type: {message_type}",
@@ -270,9 +322,11 @@ async def websocket_chat(websocket: WebSocket):
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: %s", connection_id)
+        add_console_event("websocket", "WebSocket disconnected", metadata={"connectionId": connection_id})
 
     except Exception as e:
         logger.error("WebSocket error: %s", e, exc_info=True)
+        add_console_event("websocket", "WebSocket error", level="error", detail=str(e))
 
         try:
             await websocket.send_json({

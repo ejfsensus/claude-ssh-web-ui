@@ -32,6 +32,7 @@ export function ChatInput() {
     setAgentPhase,
     setMode,
     setPendingExecute,
+    addConsoleEvent,
   } = useChatStore();
 
   useEffect(() => {
@@ -49,11 +50,22 @@ export function ChatInput() {
         const response = await apiClient.uploadFile(file);
         addAttachment(response.file);
         addActivity({ label: `Attached ${response.file.name}`, tone: 'success' });
+        addConsoleEvent({
+          kind: 'files',
+          level: 'success',
+          label: `Attached ${response.file.name}`,
+          metadata: { size: response.file.size },
+        });
       }
     } catch (error) {
       addActivity({
         label: error instanceof Error ? error.message : 'Upload failed',
         tone: 'danger',
+      });
+      addConsoleEvent({
+        kind: 'files',
+        level: 'error',
+        label: error instanceof Error ? error.message : 'Upload failed',
       });
     } finally {
       setIsUploading(false);
@@ -70,6 +82,7 @@ export function ChatInput() {
       setPendingExecute({ content, attachments, clientActionId });
       setAgentPhase('approval');
       addActivity({ label: 'Waiting for execution approval', tone: 'warning' });
+      addConsoleEvent({ kind: 'approval', level: 'warning', label: 'Waiting for execution approval' });
       return;
     }
 
@@ -95,12 +108,14 @@ export function ChatInput() {
     setMessage('');
     clearAttachments();
     setPendingExecute(null);
+    addConsoleEvent({ kind: 'approval', level: 'success', label: 'Execution request approved' });
   };
 
   const cancelExecute = () => {
     setPendingExecute(null);
     setAgentPhase('idle');
     addActivity({ label: 'Execution request cancelled', tone: 'neutral' });
+    addConsoleEvent({ kind: 'approval', level: 'info', label: 'Execution request cancelled' });
   };
 
   const handleDrop = (event: React.DragEvent) => {

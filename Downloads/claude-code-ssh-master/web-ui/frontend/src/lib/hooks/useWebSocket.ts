@@ -41,10 +41,12 @@ export function useWebSocket() {
       sharedSocket = ws;
 
       ws.onopen = () => {
+        const store = useChatStore.getState();
         isConnecting = false;
         setIsConnected(true);
-        useChatStore.getState().setAgentPhase('idle');
-        useChatStore.getState().addActivity({ label: 'Agent channel connected', tone: 'success' });
+        store.setAgentPhase('idle');
+        store.addActivity({ label: 'Agent channel connected', tone: 'success' });
+        store.addConsoleEvent({ kind: 'websocket', level: 'success', label: 'Agent channel connected' });
         clearReconnect();
 
         if (!heartbeatInterval) {
@@ -63,6 +65,12 @@ export function useWebSocket() {
 
           switch (data.type) {
             case 'connected':
+              store.addConsoleEvent({
+                kind: 'websocket',
+                level: 'info',
+                label: 'Backend accepted WebSocket',
+                metadata: { connectionId: data.connectionId },
+              });
               break;
 
             case 'session_created':
@@ -73,11 +81,18 @@ export function useWebSocket() {
                 createdAt: new Date(),
                 lastActiveAt: new Date(),
               });
+              store.addConsoleEvent({
+                kind: 'session',
+                level: 'info',
+                label: 'Session created',
+                metadata: { sessionId: data.sessionId },
+              });
               break;
 
             case 'thinking':
               store.setAgentPhase('thinking');
               store.addActivity({ label: 'Claude Code is reading the request', tone: 'neutral' });
+              store.addConsoleEvent({ kind: 'agent', level: 'info', label: 'Claude Code thinking' });
               break;
 
             case 'token':
@@ -88,16 +103,23 @@ export function useWebSocket() {
             case 'needs_approval':
               store.setAgentPhase('approval');
               store.addActivity({ label: 'Execution needs approval', tone: 'warning' });
+              store.addConsoleEvent({ kind: 'approval', level: 'warning', label: 'Execution approval required' });
               break;
 
             case 'done':
               store.setAgentPhase('idle');
               store.addActivity({ label: 'Response complete', tone: 'success' });
+              store.addConsoleEvent({ kind: 'agent', level: 'success', label: 'Response complete' });
               break;
 
             case 'error':
               store.setAgentPhase('error');
               store.addActivity({ label: data.message || 'Agent error', tone: 'danger' });
+              store.addConsoleEvent({
+                kind: 'error',
+                level: 'error',
+                label: data.message || 'Agent error',
+              });
               store.addMessage({
                 id: crypto.randomUUID(),
                 role: 'system',
@@ -118,12 +140,14 @@ export function useWebSocket() {
       };
 
       ws.onclose = () => {
+        const store = useChatStore.getState();
         isConnecting = false;
         sharedSocket = null;
         clearHeartbeat();
         setIsConnected(false);
-        useChatStore.getState().setAgentPhase('error');
-        useChatStore.getState().addActivity({ label: 'Agent channel disconnected', tone: 'danger' });
+        store.setAgentPhase('error');
+        store.addActivity({ label: 'Agent channel disconnected', tone: 'danger' });
+        store.addConsoleEvent({ kind: 'websocket', level: 'warning', label: 'Agent channel disconnected' });
 
         reconnectTimeout = setTimeout(() => {
           connect();
@@ -132,12 +156,16 @@ export function useWebSocket() {
 
       ws.onerror = (error) => {
         isConnecting = false;
-        useChatStore.getState().setAgentPhase('error');
+        const store = useChatStore.getState();
+        store.setAgentPhase('error');
+        store.addConsoleEvent({ kind: 'websocket', level: 'error', label: 'WebSocket error' });
         console.error('WebSocket error:', error);
       };
     } catch (error) {
       isConnecting = false;
-      useChatStore.getState().setAgentPhase('error');
+      const store = useChatStore.getState();
+      store.setAgentPhase('error');
+      store.addConsoleEvent({ kind: 'websocket', level: 'error', label: 'WebSocket connection failed' });
       console.error('Failed to connect WebSocket:', error);
 
       reconnectTimeout = setTimeout(() => {
@@ -170,6 +198,7 @@ export function useWebSocket() {
   ) => {
     if (!sharedSocket || sharedSocket.readyState !== WebSocket.OPEN) {
       useChatStore.getState().addActivity({ label: 'Message could not send, channel offline', tone: 'danger' });
+      useChatStore.getState().addConsoleEvent({ kind: 'chat', level: 'error', label: 'Message send failed: channel offline' });
       return;
     }
 
@@ -179,6 +208,12 @@ export function useWebSocket() {
     const clientActionId = options.clientActionId || crypto.randomUUID();
 
     store.setAgentPhase(mode === 'execute' && !options.approved ? 'approval' : 'listening');
+    store.addConsoleEvent({
+      kind: 'chat',
+      level: 'info',
+      label: `Sending ${mode} message`,
+      metadata: { attachments: attachments.length, clientActionId },
+    });
     store.addMessage({
       id: crypto.randomUUID(),
       role: 'user',

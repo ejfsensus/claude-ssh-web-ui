@@ -51,6 +51,29 @@ class Settings:
     # Claude Code CLI
     CLAUDE_BINARY: str = os.getenv("CLAUDE_BINARY", "/data/home/.local/bin/claude")
     CLAUDE_WORKSPACE: str = os.getenv("CLAUDE_WORKSPACE", "/workspace")
+    SKILLS_ROOTS: str = os.getenv(
+        "SKILLS_ROOTS",
+        ":".join([
+            "/skills",
+            "/home/claude/.agents/skills",
+            "/home/claude/.claude/skills",
+            "/home/claude/.codex/skills",
+            "/workspace/skills",
+            "/workspace/.agents/skills",
+            "/workspace/.claude/skills",
+            "/workspace/.codex/skills",
+            "/data/skills",
+        ]),
+    )
+    MCP_CONFIG_PATHS: str = os.getenv(
+        "MCP_CONFIG_PATHS",
+        ":".join([
+            "/workspace/.mcp.json",
+            "/workspace/.claude.json",
+            "/home/claude/.claude.json",
+            "/home/claude/.config/claude/mcp.json",
+        ]),
+    )
 
     # Frontend
     FRONTEND_BUILD_PATH: str = os.getenv(

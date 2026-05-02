@@ -1063,6 +1063,45 @@
     font-weight: 760;
   }
 
+  .panel-title-split {
+    justify-content: space-between;
+  }
+
+  .panel-title-split > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .dock-tabbar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+  }
+
+  .dock-tabbar button {
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    min-height: 46px;
+    border-radius: 6px;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.68rem;
+    font-weight: 760;
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .dock-tabbar button:hover,
+  .dock-tabbar .dock-tab-active {
+    color: hsl(var(--foreground));
+    background: rgba(137, 235, 237, 0.11);
+  }
+
   .system-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1100,7 +1139,10 @@
   }
 
   .file-list,
-  .activity-list {
+  .activity-list,
+  .skill-list,
+  .mcp-list,
+  .console-feed {
     display: grid;
     gap: 7px;
   }
@@ -1123,6 +1165,166 @@
   .file-row-active {
     border-color: rgba(137, 235, 237, 0.28);
     background: rgba(137, 235, 237, 0.08);
+  }
+
+  .skill-list {
+    max-height: 420px;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .skill-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: hsl(var(--foreground));
+    background: rgba(255, 255, 255, 0.045);
+    text-align: left;
+  }
+
+  .skill-row:hover,
+  .skill-row-selected {
+    border-color: rgba(137, 235, 237, 0.36);
+    background: rgba(137, 235, 237, 0.1);
+  }
+
+  .skill-row-main {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .skill-row-main strong,
+  .mcp-row strong {
+    overflow: hidden;
+    color: hsl(var(--foreground));
+    font-size: 0.8rem;
+    font-weight: 760;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .skill-row-main small,
+  .mcp-row small {
+    display: -webkit-box;
+    overflow: hidden;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.72rem;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .skill-select-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: rgb(154, 241, 235);
+    background: rgba(137, 235, 237, 0.1);
+  }
+
+  .mcp-row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    padding: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  .mcp-row .state-dot {
+    width: 8px;
+    height: 8px;
+    color: rgb(134, 240, 205);
+  }
+
+  .mcp-row div {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .mcp-row em {
+    color: rgb(160, 246, 242);
+    font-size: 0.67rem;
+    font-style: normal;
+    font-weight: 760;
+    text-transform: uppercase;
+  }
+
+  .raw-console {
+    max-height: 132px;
+    overflow: auto;
+    margin: 9px 0 0;
+    padding: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgb(206, 221, 230);
+    background: rgba(0, 0, 0, 0.22);
+    font-size: 0.69rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+
+  .console-feed {
+    max-height: 430px;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .console-row {
+    padding: 9px;
+    border-left: 2px solid hsl(var(--muted-foreground) / 0.6);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+  }
+
+  .console-row span,
+  .console-row time {
+    display: block;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.66rem;
+    font-weight: 760;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .console-row p {
+    margin: 3px 0;
+    color: hsl(var(--foreground));
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .console-row pre {
+    max-height: 120px;
+    overflow: auto;
+    margin: 6px 0 0;
+    color: rgb(206, 221, 230);
+    font-size: 0.68rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+
+  .console-success {
+    border-left-color: rgb(134, 240, 205);
+  }
+
+  .console-warning {
+    border-left-color: rgb(255, 211, 138);
+  }
+
+  .console-error {
+    border-left-color: rgb(255, 139, 160);
   }
 
   .panel-empty {
