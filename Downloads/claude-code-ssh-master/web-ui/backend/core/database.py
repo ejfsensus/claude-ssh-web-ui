@@ -5,6 +5,8 @@ Database connection and models using SQLite.
 import sqlite3
 import logging
 import json
+import os
+import uuid
 from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +14,10 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Database path
-DB_PATH = "/data/web-ui/sessions.db"
+DB_PATH = os.getenv(
+    "WEB_UI_DB_PATH",
+    str(Path(os.getenv("WEB_UI_DATA_DIR", "/data/web-ui")) / "sessions.db"),
+)
 
 
 def get_db():
@@ -75,12 +80,14 @@ def init_db():
 # Session operations
 def create_session(session_id: str, title: str = "New Session"):
     """Create a new session."""
+    created_at = datetime.utcnow()
+
     conn = get_db()
     cursor = conn.cursor()
 
     cursor.execute(
         "INSERT INTO sessions (id, title, created_at, last_active_at) VALUES (?, ?, ?, ?)",
-        (session_id, title, datetime.utcnow(), datetime.utcnow())
+        (session_id, title, created_at, created_at)
     )
 
     conn.commit()
@@ -91,8 +98,8 @@ def create_session(session_id: str, title: str = "New Session"):
     return {
         "id": session_id,
         "title": title,
-        "createdAt": datetime.utcnow().isoformat(),
-        "lastActiveAt": datetime.utcnow().isoformat()
+        "created_at": created_at,
+        "last_active_at": created_at
     }
 
 
@@ -170,7 +177,7 @@ def create_message(
     conn = get_db()
     cursor = conn.cursor()
 
-    message_id = str(int(datetime.utcnow().timestamp() * 1000))
+    message_id = str(uuid.uuid4())
 
     cursor.execute(
         """INSERT INTO messages (id, session_id, role, content, attachments, created_at)

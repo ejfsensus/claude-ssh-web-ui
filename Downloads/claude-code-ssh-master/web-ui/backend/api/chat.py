@@ -1,17 +1,23 @@
 """
-Chat API endpoints - WebSocket for streaming chat.
+Chat API endpoints and session persistence for the web interface.
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
-from typing import Dict, Set
 import json
 import logging
 import uuid
-from datetime import datetime
+from typing import Any, Dict, Optional
 
-from core.security import get_current_user
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+
 from core.claude_wrapper import get_claude
-from core.database import create_session, create_message, get_messages
+from core.database import (
+    create_message,
+    create_session,
+    delete_session,
+    get_messages,
+    list_sessions,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -23,41 +29,101 @@ active_connections: Dict[str, WebSocket] = {}
 connection_sessions: Dict[str, str] = {}
 
 
+class SessionCreateRequest(BaseModel):
+    """Request body for creating a chat session."""
+
+    title: str = "New Session"
+
+
+def _timestamp(value: Any) -> str:
+    """Return API-friendly timestamps from SQLite strings or datetimes."""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _json_list(value: Any) -> list:
+    """Decode JSON list values stored in SQLite."""
+    if isinstance(value, list):
+        return value
+    if not value:
+        return []
+
+    try:
+        parsed = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return []
+
+    return parsed if isinstance(parsed, list) else []
+
+
+def _session_response(session: dict, message_count: Optional[int] = None) -> dict:
+    response = {
+        "id": session["id"],
+        "title": session["title"],
+        "createdAt": _timestamp(session["created_at"]),
+        "lastActiveAt": _timestamp(session["last_active_at"]),
+    }
+
+    if message_count is not None:
+        response["messageCount"] = message_count
+
+    return response
+
+
+def _message_response(message: dict) -> dict:
+    return {
+        "id": message["id"],
+        "role": message["role"],
+        "content": message["content"],
+        "attachments": _json_list(message.get("attachments")),
+        "createdAt": _timestamp(message["created_at"]),
+    }
+
+
 @router.get("/sessions")
 async def list_sessions_api(limit: int = 50):
     """List all sessions."""
-    from core.database import list_sessions
-
-    sessions = await list_sessions(limit=limit)
+    sessions = list_sessions(limit=limit)
 
     return {
         "sessions": [
-            {
-                "id": s.id,
-                "title": s.title,
-                "createdAt": s.createdAt.isoformat(),
-                "lastActiveAt": s.lastActiveAt.isoformat(),
-                "messageCount": len(await get_messages(s.id))
-            }
-            for s in sessions
+            _session_response(session, message_count=len(get_messages(session["id"])))
+            for session in sessions
         ]
     }
 
 
 @router.post("/sessions")
-async def create_session_api(title: str = "New Session"):
+async def create_session_api(payload: Optional[SessionCreateRequest] = None):
     """Create a new session."""
-    session_id = str(uuid.uuid4())
-    session = await create_session(session_id, title)
+    session = create_session(str(uuid.uuid4()), payload.title if payload else "New Session")
+    return {"session": _session_response(session)}
 
-    return {
-        "session": {
-            "id": session.id,
-            "title": session.title,
-            "createdAt": session.createdAt.isoformat(),
-            "lastActiveAt": session.lastActiveAt.isoformat(),
-        }
-    }
+
+@router.get("/sessions/{session_id}")
+async def get_session_api(session_id: str):
+    """Get a session by ID."""
+    from core.database import get_session
+
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return {"session": _session_response(session)}
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session_api(session_id: str):
+    """Delete a session and its messages."""
+    from core.database import get_session
+
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    delete_session(session_id)
+    return {"deleted": True}
 
 
 @router.get("/sessions/{session_id}/messages")
@@ -65,24 +131,12 @@ async def get_session_messages(session_id: str, limit: int = 100):
     """Get messages for a session."""
     from core.database import get_session
 
-    session = await get_session(session_id)
+    session = get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    messages = await get_messages(session_id, limit=limit)
-
-    return {
-        "messages": [
-            {
-                "id": m.id,
-                "role": m.role,
-                "content": m.content,
-                "attachments": m.attachments,
-                "createdAt": m.createdAt.isoformat(),
-            }
-            for m in messages
-        ]
-    }
+    messages = get_messages(session_id, limit=limit)
+    return {"messages": [_message_response(message) for message in messages]}
 
 
 @router.websocket("/ws/chat")
@@ -95,29 +149,23 @@ async def websocket_chat(websocket: WebSocket):
 
     Server sends:
     {"type": "token", "content": "word", "sessionId": "uuid"}
-    {"type": "tool_use", "tool": "name", "input": {}}
     {"type": "error", "message": "error text"}
     {"type": "done", "sessionId": "uuid"}
     """
     await websocket.accept()
 
-    # Generate connection ID
     connection_id = str(uuid.uuid4())
     active_connections[connection_id] = websocket
-
-    logger.info(f"WebSocket connection established: {connection_id}")
+    logger.info("WebSocket connection established: %s", connection_id)
 
     try:
-        # Send connection confirmation
         await websocket.send_json({
             "type": "connected",
-            "connectionId": connection_id
+            "connectionId": connection_id,
         })
 
         while True:
-            # Receive message from client
             data = await websocket.receive_json()
-
             message_type = data.get("type")
 
             if message_type == "message":
@@ -128,88 +176,63 @@ async def websocket_chat(websocket: WebSocket):
                 if not content:
                     await websocket.send_json({
                         "type": "error",
-                        "message": "Message content is required"
+                        "message": "Message content is required",
                     })
                     continue
 
-                # Create session if not provided
                 if not session_id:
-                    from core.database import create_session
-                    session = await create_session(str(uuid.uuid4()), "New Chat")
-                    session_id = session.id
+                    session = create_session(str(uuid.uuid4()), "New Chat")
+                    session_id = session["id"]
                     connection_sessions[connection_id] = session_id
 
-                    # Notify client of new session
                     await websocket.send_json({
                         "type": "session_created",
-                        "sessionId": session_id
+                        "sessionId": session_id,
                     })
 
-                # Save user message to database
-                await create_message(
-                    session_id,
-                    "user",
-                    content,
-                    attachments
-                )
+                create_message(session_id, "user", content, attachments)
 
-                # Stream Claude's response
                 claude = await get_claude()
-
                 response_buffer = ""
                 async for token in claude.stream_response(content, session_id):
                     response_buffer += token
-
-                    # Send token to client
                     await websocket.send_json({
                         "type": "token",
                         "content": token,
-                        "sessionId": session_id
+                        "sessionId": session_id,
                     })
 
-                # Save assistant message to database
-                await create_message(
-                    session_id,
-                    "assistant",
-                    response_buffer,
-                    []
-                )
+                create_message(session_id, "assistant", response_buffer, [])
 
-                # Send completion signal
                 await websocket.send_json({
                     "type": "done",
-                    "sessionId": session_id
+                    "sessionId": session_id,
                 })
 
             elif message_type == "ping":
-                # Heartbeat
                 await websocket.send_json({"type": "pong"})
 
             else:
                 await websocket.send_json({
                     "type": "error",
-                    "message": f"Unknown message type: {message_type}"
+                    "message": f"Unknown message type: {message_type}",
                 })
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected: {connection_id}")
+        logger.info("WebSocket disconnected: %s", connection_id)
 
     except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
+        logger.error("WebSocket error: %s", e, exc_info=True)
 
         try:
             await websocket.send_json({
                 "type": "error",
-                "message": str(e)
+                "message": str(e),
             })
-        except:
+        except Exception:
             pass
 
     finally:
-        # Clean up connection
-        if connection_id in active_connections:
-            del active_connections[connection_id]
-        if connection_id in connection_sessions:
-            del connection_sessions[connection_id]
-
-        logger.info(f"WebSocket connection cleaned up: {connection_id}")
+        active_connections.pop(connection_id, None)
+        connection_sessions.pop(connection_id, None)
+        logger.info("WebSocket connection cleaned up: %s", connection_id)

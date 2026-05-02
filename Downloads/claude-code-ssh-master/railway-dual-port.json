@@ -11,7 +11,8 @@
       "scripts/**",
       "s6-overlay/**",
       "fail2ban/**",
-      "web-ui/backend/**"
+      "web-ui/backend/**",
+      "web-ui/frontend/**"
     ]
   },
   "deploy": {

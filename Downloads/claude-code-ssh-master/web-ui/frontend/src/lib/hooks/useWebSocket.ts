@@ -1,51 +1,70 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useChatStore } from '@/lib/store/chatStore';
 import { apiClient } from '@/lib/api/client';
 
+let sharedSocket: WebSocket | null = null;
+let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
+let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+let isConnecting = false;
+
+const clearReconnect = () => {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = undefined;
+  }
+};
+
+const clearHeartbeat = () => {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = undefined;
+  }
+};
+
 export function useWebSocket() {
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const {
-    setIsConnected,
-    currentSessionId,
-    addMessage,
-    appendToLastMessage,
-    addSession,
-    setCurrentSessionId,
-  } = useChatStore();
+  const setIsConnected = useChatStore((state) => state.setIsConnected);
+  const isConnected = useChatStore((state) => state.isConnected);
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    if (
+      sharedSocket?.readyState === WebSocket.OPEN ||
+      sharedSocket?.readyState === WebSocket.CONNECTING ||
+      isConnecting
+    ) {
       return;
     }
 
     try {
+      isConnecting = true;
       const ws = apiClient.connectWebSocket();
-      wsRef.current = ws;
+      sharedSocket = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        isConnecting = false;
         setIsConnected(true);
+        clearReconnect();
 
-        // Clear any pending reconnection
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
+        if (!heartbeatInterval) {
+          heartbeatInterval = setInterval(() => {
+            if (sharedSocket?.readyState === WebSocket.OPEN) {
+              sharedSocket.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 30000);
         }
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          const store = useChatStore.getState();
 
           switch (data.type) {
             case 'connected':
-              console.log('WebSocket connection confirmed:', data.connectionId);
               break;
 
             case 'session_created':
-              console.log('Session created:', data.sessionId);
-              setCurrentSessionId(data.sessionId);
-              addSession({
+              store.setCurrentSessionId(data.sessionId);
+              store.addSession({
                 id: data.sessionId,
                 title: 'New Chat',
                 createdAt: new Date(),
@@ -54,18 +73,15 @@ export function useWebSocket() {
               break;
 
             case 'token':
-              // Append streaming token to last assistant message
-              appendToLastMessage(data.content);
+              store.appendToLastMessage(data.content);
               break;
 
             case 'done':
-              console.log('Message complete:', data.sessionId);
               break;
 
             case 'error':
-              console.error('WebSocket error:', data.message);
-              addMessage({
-                id: Date.now().toString(),
+              store.addMessage({
+                id: crypto.randomUUID(),
                 role: 'system',
                 content: `Error: ${data.message}`,
                 createdAt: new Date(),
@@ -73,7 +89,6 @@ export function useWebSocket() {
               break;
 
             case 'pong':
-              // Heartbeat response
               break;
 
             default:
@@ -85,101 +100,86 @@ export function useWebSocket() {
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        isConnecting = false;
+        sharedSocket = null;
+        clearHeartbeat();
         setIsConnected(false);
 
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Attempting to reconnect...');
+        reconnectTimeout = setTimeout(() => {
           connect();
         }, 3000);
       };
 
       ws.onerror = (error) => {
+        isConnecting = false;
         console.error('WebSocket error:', error);
       };
     } catch (error) {
+      isConnecting = false;
       console.error('Failed to connect WebSocket:', error);
 
-      // Retry connection after 5 seconds
-      reconnectTimeoutRef.current = setTimeout(() => {
+      reconnectTimeout = setTimeout(() => {
         connect();
       }, 5000);
     }
-  }, [setIsConnected, addSession, setCurrentSessionId, addMessage, appendToLastMessage]);
+  }, [setIsConnected]);
 
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
+    clearReconnect();
+    clearHeartbeat();
+
+    if (sharedSocket) {
+      sharedSocket.close();
+      sharedSocket = null;
     }
 
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-
+    isConnecting = false;
     setIsConnected(false);
   }, [setIsConnected]);
 
-  const sendMessage = useCallback(
-    (content: string, attachments: string[] = []) => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket is not connected');
-        return;
-      }
+  const sendMessage = useCallback((content: string, attachments: string[] = []) => {
+    if (!sharedSocket || sharedSocket.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket is not connected');
+      return;
+    }
 
-      // Add user message to store
-      addMessage({
-        id: Date.now().toString(),
-        role: 'user',
+    const store = useChatStore.getState();
+
+    store.addMessage({
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      attachments,
+      createdAt: new Date(),
+    });
+
+    store.addMessage({
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: '',
+      createdAt: new Date(),
+    });
+
+    sharedSocket.send(
+      JSON.stringify({
+        type: 'message',
         content,
+        sessionId: store.currentSessionId,
         attachments,
-        createdAt: new Date(),
-      });
-
-      // Create placeholder assistant message for streaming
-      addMessage({
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: '',
-        createdAt: new Date(),
-      });
-
-      // Send message to server
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'message',
-          content,
-          sessionId: currentSessionId,
-          attachments,
-        })
-      );
-    },
-    [currentSessionId, addMessage]
-  );
-
-  // Send heartbeat every 30 seconds
-  useEffect(() => {
-    const heartbeatInterval = setInterval(() => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'ping' }));
-      }
-    }, 30000);
-
-    return () => clearInterval(heartbeatInterval);
+      })
+    );
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      disconnect();
+      clearReconnect();
     };
-  }, [disconnect]);
+  }, []);
 
   return {
     connect,
     disconnect,
     sendMessage,
-    isConnected: useChatStore((state) => state.isConnected),
+    isConnected,
   };
 }

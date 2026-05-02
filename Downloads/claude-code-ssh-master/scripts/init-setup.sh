@@ -381,7 +381,9 @@ EOF
     log "  Added Railway domain to web UI config"
 fi
 
-# Set proper permissions
+# Set proper permissions. The web UI runs as the claude user so the backend can
+# write its SQLite database and use the same Claude Code home/auth as SSH.
+chown -R "${CLAUDE_USER}:${CLAUDE_USER}" "${DATA_WEB_UI}"
 chmod 755 "${DATA_WEB_UI}"
 chmod 700 "${DATA_WEB_UI}/uploads" "${DATA_WEB_UI}/sessions" "${DATA_WEB_UI}/audio"
 chmod 600 "${WEB_UI_ENV}"

@@ -6,6 +6,11 @@ import os
 from typing import List
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+
+load_dotenv("/data/web-ui/.env")
+
 
 class Settings:
     """Application settings."""
@@ -17,7 +22,7 @@ class Settings:
 
     # Server
     HOST: str = "0.0.0.0"
-    PORT: int = 8080
+    PORT: int = int(os.getenv("PORT", "8080"))
 
     # CORS
     ALLOWED_ORIGINS: List[str] = [
@@ -36,15 +41,22 @@ class Settings:
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///data/web-ui/sessions.db"
+    WEB_UI_DATA_DIR: str = os.getenv("WEB_UI_DATA_DIR", "/data/web-ui")
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{WEB_UI_DATA_DIR}/sessions.db"
 
     # File storage
-    UPLOAD_DIR: Path = Path("/data/web-ui/uploads")
+    UPLOAD_DIR: Path = Path(WEB_UI_DATA_DIR) / "uploads"
     MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024  # 50MB
 
     # Claude Code CLI
-    CLAUDE_BINARY: str = "/home/claude/.local/bin/claude"
-    CLAUDE_WORKSPACE: str = "/workspace"
+    CLAUDE_BINARY: str = os.getenv("CLAUDE_BINARY", "/data/home/.local/bin/claude")
+    CLAUDE_WORKSPACE: str = os.getenv("CLAUDE_WORKSPACE", "/workspace")
+
+    # Frontend
+    FRONTEND_BUILD_PATH: str = os.getenv(
+        "FRONTEND_BUILD_PATH",
+        "/home/claude/web-ui/frontend/out",
+    )
 
     # Rate limiting
     RATE_LIMIT_REQUESTS: int = 1000

@@ -4,19 +4,16 @@ FastAPI backend for Claude SSH web interface.
 Wraps Claude Code CLI with WebSocket streaming and REST API.
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
-from typing import Dict
 from pathlib import Path
 
 from core.config import settings
-from core.security import get_password_hash, verify_password, create_access_token
 from api.chat import router as chat_router
-from api.sessions import router as sessions_router
 from api.files import router as files_router
 from api.processes import router as processes_router
 
@@ -39,11 +36,12 @@ async def lifespan(app: FastAPI):
 
     # Initialize web-ui directories
     from pathlib import Path
+    web_ui_root = Path(settings.WEB_UI_DATA_DIR)
     web_ui_dirs = [
-        Path("/data/web-ui"),
-        Path("/data/web-ui/uploads"),
-        Path("/data/web-ui/sessions"),
-        Path("/data/web-ui/audio"),
+        web_ui_root,
+        web_ui_root / "uploads",
+        web_ui_root / "sessions",
+        web_ui_root / "audio",
     ]
     for dir_path in web_ui_dirs:
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -74,21 +72,22 @@ app.add_middleware(
 
 # Include routers
 app.include_router(chat_router, prefix="/api", tags=["chat"])
-app.include_router(sessions_router, prefix="/api", tags=["sessions"])
 app.include_router(files_router, prefix="/api", tags=["files"])
 app.include_router(processes_router, prefix="/api", tags=["processes"])
 
-# Mount static files from Next.js build
-frontend_build_path = Path("/home/claude/web-ui/frontend/out")
-if frontend_build_path.exists():
-    app.mount("/static", StaticFiles(directory=str(frontend_build_path / "static")), name="static")
-    logger.info(f"Serving static files from {frontend_build_path}")
+# Mount static files from the Next.js export.
+#
+# Next's static export emits assets under out/_next, not out/static. Mounting a
+# missing out/static directory raises at import time, which prevents uvicorn from
+# binding port 8080 and makes Railway report that the application failed to
+# respond.
+frontend_build_path = Path(settings.FRONTEND_BUILD_PATH)
+frontend_next_path = frontend_build_path / "_next"
+if frontend_next_path.exists():
+    app.mount("/_next", StaticFiles(directory=str(frontend_next_path)), name="next-assets")
+    logger.info(f"Serving Next.js assets from {frontend_next_path}")
 else:
-    logger.warning(f"Frontend build not found at {frontend_build_path}")
-
-
-# Active WebSocket connections
-active_connections: Dict[str, WebSocket] = {}
+    logger.warning(f"Next.js asset directory not found at {frontend_next_path}")
 
 
 @app.get("/api/health")
@@ -104,7 +103,6 @@ async def health_check():
 @app.get("/")
 async def root():
     """Root endpoint - serve frontend."""
-    frontend_build_path = Path("/home/claude/web-ui/frontend/out")
     index_file = frontend_build_path / "index.html"
 
     if index_file.exists():
@@ -128,6 +126,31 @@ async def api_info():
         "docs": "/docs",
         "health": "/api/health"
     }
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_frontend_asset_or_app(full_path: str):
+    """Serve exported frontend files and fall back to the app shell."""
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
+
+    if frontend_build_path.exists():
+        requested_path = (frontend_build_path / full_path).resolve()
+        build_root = frontend_build_path.resolve()
+
+        try:
+            requested_path.relative_to(build_root)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if requested_path.is_file():
+            return FileResponse(requested_path)
+
+        index_file = frontend_build_path / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+
+    raise HTTPException(status_code=404, detail="Frontend not built")
 
 
 if __name__ == "__main__":

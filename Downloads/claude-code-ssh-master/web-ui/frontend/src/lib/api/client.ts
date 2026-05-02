@@ -4,6 +4,11 @@
 
 // Use relative URLs when deployed with backend, otherwise use localhost
 const getBaseURL = () => {
+  const configuredURL = process.env.NEXT_PUBLIC_API_URL;
+  if (configuredURL) {
+    return configuredURL.replace(/\/$/, '');
+  }
+
   if (typeof window !== 'undefined') {
     // Use the same origin if deployed together
     return window.location.origin;
@@ -12,6 +17,11 @@ const getBaseURL = () => {
 };
 
 const getWSURL = () => {
+  const configuredURL = process.env.NEXT_PUBLIC_WS_URL;
+  if (configuredURL) {
+    return configuredURL.replace(/\/$/, '');
+  }
+
   if (typeof window !== 'undefined') {
     // Convert http(s) to ws(s)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -29,14 +39,20 @@ export class APIClient {
     this.wsURL = getWSURL();
   }
 
+  private apiEndpoint(endpoint: string) {
+    const normalized = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const apiBaseURL = this.baseURL.endsWith('/api') ? this.baseURL : `${this.baseURL}/api`;
+    return `${apiBaseURL}${normalized}`;
+  }
+
   async get(endpoint: string) {
-    const response = await fetch(`${this.baseURL}${endpoint}`);
+    const response = await fetch(this.apiEndpoint(endpoint));
     if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
     return response.json();
   }
 
   async post(endpoint: string, data?: any) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    const response = await fetch(this.apiEndpoint(endpoint), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: data ? JSON.stringify(data) : undefined,
@@ -46,7 +62,7 @@ export class APIClient {
   }
 
   async delete(endpoint: string) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    const response = await fetch(this.apiEndpoint(endpoint), {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
@@ -86,7 +102,7 @@ export class APIClient {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${this.baseURL}/files/upload`, {
+    const response = await fetch(this.apiEndpoint('/files/upload'), {
       method: 'POST',
       body: formData,
     });
@@ -110,7 +126,7 @@ export class APIClient {
 
   // Health check
   async healthCheck() {
-    return this.get('/api/health');
+    return this.get('/health');
   }
 }
 

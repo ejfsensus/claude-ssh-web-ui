@@ -5,6 +5,8 @@ Claude Code CLI wrapper - handles subprocess communication.
 import subprocess
 import asyncio
 import logging
+import os
+import shutil
 from typing import AsyncIterator, Optional
 from pathlib import Path
 
@@ -21,14 +23,42 @@ class ClaudeWrapper:
         self.claude_binary = settings.CLAUDE_BINARY
         self.process: Optional[asyncio.subprocess.Process] = None
 
+    def _resolve_claude_binary(self) -> str:
+        """Find Claude Code in the persistent home first, then PATH."""
+        candidates = [
+            self.claude_binary,
+            "/data/home/.local/bin/claude",
+            "/home/claude/.local/bin/claude",
+            shutil.which("claude") or "",
+        ]
+
+        for candidate in candidates:
+            if candidate and Path(candidate).exists():
+                return candidate
+
+        return self.claude_binary
+
+    def _subprocess_env(self) -> dict:
+        """Preserve Railway/container env while making Claude's home explicit."""
+        env = os.environ.copy()
+        env.update({
+            "PATH": "/data/home/.local/bin:/home/claude/.local/bin:/usr/local/bin:/usr/bin:/bin",
+            "HOME": "/data/home",
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8",
+            "USER": "claude",
+        })
+        return env
+
     async def is_available(self) -> bool:
         """Check if Claude CLI is available."""
         try:
             result = await asyncio.create_subprocess_exec(
-                self.claude_binary,
+                self._resolve_claude_binary(),
                 "--version",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=self._subprocess_env(),
             )
             await result.communicate()
             return result.returncode == 0
@@ -53,17 +83,12 @@ class ClaudeWrapper:
         try:
             # Create subprocess with stdin/stdout/stderr pipes
             self.process = await asyncio.create_subprocess_exec(
-                self.claude_binary,
+                self._resolve_claude_binary(),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout
                 cwd=self.workspace,
-                env={
-                    "PATH": "/home/claude/.local/bin:/usr/local/bin:/usr/bin:/bin",
-                    "HOME": str(Path(self.workspace).parent),
-                    "LANG": "en_US.UTF-8",
-                    "USER": "claude",
-                }
+                env=self._subprocess_env(),
             )
 
             # Send the prompt
@@ -140,6 +165,7 @@ class ClaudeWrapper:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.workspace,
+                env=self._subprocess_env(),
             )
 
             stdout, stderr = await asyncio.wait_for(
