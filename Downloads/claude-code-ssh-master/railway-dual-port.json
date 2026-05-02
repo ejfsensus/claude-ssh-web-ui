@@ -16,17 +16,9 @@
     ]
   },
   "deploy": {
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 5,
-    "ports": [
-      {
-        "port": 22,
-        "type": "TCP"
-      },
-      {
-        "port": 8080,
-        "type": "HTTP"
-      }
-    ]
+    "restartPolicyMaxRetries": 5
   }
 }
