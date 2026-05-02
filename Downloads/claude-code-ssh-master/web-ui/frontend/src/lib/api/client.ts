@@ -1,8 +1,9 @@
 /**
- * API client for communicating with FastAPI backend
+ * API client for communicating with the FastAPI backend.
  */
 
-// Use relative URLs when deployed with backend, otherwise use localhost
+import type { AttachmentDescriptor, RuntimeStatus, WorkspaceFile } from '@/lib/store/chatStore';
+
 const getBaseURL = () => {
   const configuredURL = process.env.NEXT_PUBLIC_API_URL;
   if (configuredURL) {
@@ -10,9 +11,9 @@ const getBaseURL = () => {
   }
 
   if (typeof window !== 'undefined') {
-    // Use the same origin if deployed together
     return window.location.origin;
   }
+
   return 'http://localhost:8080';
 };
 
@@ -23,10 +24,10 @@ const getWSURL = () => {
   }
 
   if (typeof window !== 'undefined') {
-    // Convert http(s) to ws(s)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.host}`;
   }
+
   return 'ws://localhost:8080';
 };
 
@@ -45,43 +46,54 @@ export class APIClient {
     return `${apiBaseURL}${normalized}`;
   }
 
-  async get(endpoint: string) {
-    const response = await fetch(this.apiEndpoint(endpoint));
-    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+  private async request(endpoint: string, init?: RequestInit) {
+    const response = await fetch(this.apiEndpoint(endpoint), init);
+    if (!response.ok) {
+      let detail = response.statusText;
+      try {
+        const body = await response.json();
+        detail = body.detail || body.message || detail;
+      } catch {
+        // Keep the HTTP status text.
+      }
+      throw new Error(detail);
+    }
     return response.json();
   }
 
-  async post(endpoint: string, data?: any) {
-    const response = await fetch(this.apiEndpoint(endpoint), {
+  async get(endpoint: string) {
+    return this.request(endpoint);
+  }
+
+  async post(endpoint: string, data?: unknown) {
+    return this.request(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: data ? JSON.stringify(data) : undefined,
     });
-    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
-    return response.json();
   }
 
   async delete(endpoint: string) {
-    const response = await fetch(this.apiEndpoint(endpoint), {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
-    return response.json();
+    return this.request(endpoint, { method: 'DELETE' });
   }
 
-  // WebSocket connection
   connectWebSocket(): WebSocket {
-    const ws = new WebSocket(`${this.wsURL}/api/ws/chat`);
-
-    return ws;
+    return new WebSocket(`${this.wsURL}/api/ws/chat`);
   }
 
-  // Sessions
+  async healthCheck() {
+    return this.get('/health');
+  }
+
+  async getStatus(): Promise<RuntimeStatus> {
+    return this.get('/status');
+  }
+
   async listSessions() {
     return this.get('/sessions');
   }
 
-  async createSession(title: string = 'New Session') {
+  async createSession(title = 'New Session') {
     return this.post('/sessions', { title });
   }
 
@@ -93,12 +105,19 @@ export class APIClient {
     return this.get(`/sessions/${sessionId}/messages`);
   }
 
-  // Files
-  async listFiles() {
-    return this.get('/files/list');
+  async listFiles(path = ''): Promise<{ path: string; files: WorkspaceFile[] }> {
+    const params = new URLSearchParams();
+    if (path) params.set('path', path);
+    const query = params.toString();
+    return this.get(`/workspace/tree${query ? `?${query}` : ''}`);
   }
 
-  async uploadFile(file: File) {
+  async previewFile(path: string) {
+    const params = new URLSearchParams({ path });
+    return this.get(`/workspace/file?${params.toString()}`);
+  }
+
+  async uploadFile(file: File): Promise<{ file: AttachmentDescriptor }> {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -107,26 +126,21 @@ export class APIClient {
       body: formData,
     });
 
-    if (!response.ok) throw new Error('Upload failed');
+    if (!response.ok) {
+      let detail = 'Upload failed';
+      try {
+        const body = await response.json();
+        detail = body.detail || detail;
+      } catch {
+        // Keep the generic upload error.
+      }
+      throw new Error(detail);
+    }
     return response.json();
   }
 
-  // Processes
   async listProcesses() {
     return this.get('/processes');
-  }
-
-  async startProcess(command: string, name: string) {
-    return this.post('/processes/start', { command, name });
-  }
-
-  async stopProcess(processId: string) {
-    return this.delete(`/processes/${processId}`);
-  }
-
-  // Health check
-  async healthCheck() {
-    return this.get('/health');
   }
 }
 

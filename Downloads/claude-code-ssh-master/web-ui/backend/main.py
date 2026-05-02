@@ -13,6 +13,7 @@ import logging
 from pathlib import Path
 
 from core.config import settings
+from core.claude_wrapper import get_claude
 from api.chat import router as chat_router
 from api.files import router as files_router
 from api.processes import router as processes_router
@@ -97,6 +98,35 @@ async def health_check():
         "status": "healthy",
         "service": "claude-ssh-web-ui",
         "version": "1.0.0"
+    }
+
+
+@app.get("/api/status")
+async def status_check():
+    """Runtime status for the personal agent interface."""
+    claude = await get_claude()
+    claude_available = await claude.is_available()
+    workspace = Path(settings.CLAUDE_WORKSPACE)
+
+    return {
+        "status": "ready" if claude_available else "degraded",
+        "service": "claude-ssh-web-ui",
+        "version": "1.0.0",
+        "agent": {
+            "name": "Claude Code",
+            "available": claude_available,
+        },
+        "workspace": {
+            "path": str(workspace),
+            "exists": workspace.exists(),
+        },
+        "features": {
+            "chat": True,
+            "uploads": True,
+            "workspacePreview": True,
+            "voice": False,
+            "mutationsRequireConfirmation": True,
+        },
     }
 
 

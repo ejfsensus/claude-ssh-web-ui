@@ -1,11 +1,23 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export type AgentMode = 'ask' | 'plan' | 'execute';
+export type AgentPhase = 'idle' | 'listening' | 'thinking' | 'streaming' | 'approval' | 'error';
+
+export interface AttachmentDescriptor {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  mimeType?: string | null;
+  uploadedAt?: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  attachments?: string[];
+  attachments?: Array<AttachmentDescriptor | string>;
   createdAt: Date;
 }
 
@@ -25,51 +37,121 @@ export interface Process {
   command?: string;
 }
 
+export interface WorkspaceFile {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size: number;
+  modifiedAt?: string;
+  mimeType?: string | null;
+}
+
+export interface RuntimeStatus {
+  status: 'ready' | 'degraded' | 'unknown';
+  agent?: {
+    name: string;
+    available: boolean;
+  };
+  workspace?: {
+    path: string;
+    exists: boolean;
+  };
+  features?: Record<string, boolean>;
+}
+
+export interface ActivityItem {
+  id: string;
+  label: string;
+  tone: 'neutral' | 'success' | 'warning' | 'danger';
+  createdAt: Date;
+}
+
+interface PendingExecuteRequest {
+  content: string;
+  attachments: AttachmentDescriptor[];
+  clientActionId: string;
+}
+
 interface ChatState {
-  // Current session
   currentSessionId: string | null;
   setCurrentSessionId: (sessionId: string | null) => void;
 
-  // Messages
+  mode: AgentMode;
+  setMode: (mode: AgentMode) => void;
+  agentPhase: AgentPhase;
+  setAgentPhase: (phase: AgentPhase) => void;
+
   messages: Message[];
+  setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
   clearMessages: () => void;
   appendToLastMessage: (content: string) => void;
 
-  // Sessions
   sessions: Session[];
   setSessions: (sessions: Session[]) => void;
   addSession: (session: Session) => void;
   removeSession: (sessionId: string) => void;
 
-  // Connection
   isConnected: boolean;
   setIsConnected: (connected: boolean) => void;
 
-  // Processes
+  runtimeStatus: RuntimeStatus | null;
+  setRuntimeStatus: (status: RuntimeStatus | null) => void;
+
+  workspaceFiles: WorkspaceFile[];
+  setWorkspaceFiles: (files: WorkspaceFile[]) => void;
+  selectedFile: WorkspaceFile | null;
+  setSelectedFile: (file: WorkspaceFile | null) => void;
+
+  attachments: AttachmentDescriptor[];
+  addAttachment: (attachment: AttachmentDescriptor) => void;
+  removeAttachment: (attachmentId: string) => void;
+  clearAttachments: () => void;
+
+  pendingExecute: PendingExecuteRequest | null;
+  setPendingExecute: (request: PendingExecuteRequest | null) => void;
+
+  activity: ActivityItem[];
+  addActivity: (item: Omit<ActivityItem, 'id' | 'createdAt'>) => void;
+
   processes: Process[];
   setProcesses: (processes: Process[]) => void;
   addProcess: (process: Process) => void;
   updateProcess: (processId: string, updates: Partial<Process>) => void;
   removeProcess: (processId: string) => void;
 
-  // UI state
   sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  dockOpen: boolean;
+  setDockOpen: (open: boolean) => void;
+  toggleDock: () => void;
 }
+
+const reviveDate = (value: Date | string) => value instanceof Date ? value : new Date(value);
 
 export const useChatStore = create<ChatState>()(
   persist(
-    (set, get) => ({
-      // Current session
+    (set) => ({
       currentSessionId: null,
       setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
 
-      // Messages
+      mode: 'ask',
+      setMode: (mode) => set({ mode }),
+      agentPhase: 'idle',
+      setAgentPhase: (phase) => set({ agentPhase: phase }),
+
       messages: [],
+      setMessages: (messages) =>
+        set({
+          messages: messages.map((message) => ({
+            ...message,
+            createdAt: reviveDate(message.createdAt),
+          })),
+        }),
       addMessage: (message) =>
         set((state) => ({
-          messages: [...state.messages, message],
+          messages: [...state.messages, { ...message, createdAt: reviveDate(message.createdAt) }],
         })),
       clearMessages: () => set({ messages: [] }),
       appendToLastMessage: (content) =>
@@ -82,25 +164,62 @@ export const useChatStore = create<ChatState>()(
           return { messages };
         }),
 
-      // Sessions
       sessions: [],
-      setSessions: (sessions) => set({ sessions }),
+      setSessions: (sessions) =>
+        set({
+          sessions: sessions.map((session) => ({
+            ...session,
+            createdAt: reviveDate(session.createdAt),
+            lastActiveAt: reviveDate(session.lastActiveAt),
+          })),
+        }),
       addSession: (session) =>
         set((state) => ({
-          sessions: [session, ...state.sessions],
+          sessions: [
+            { ...session, createdAt: reviveDate(session.createdAt), lastActiveAt: reviveDate(session.lastActiveAt) },
+            ...state.sessions.filter((item) => item.id !== session.id),
+          ],
         })),
       removeSession: (sessionId) =>
         set((state) => ({
           sessions: state.sessions.filter((s) => s.id !== sessionId),
-          currentSessionId:
-            state.currentSessionId === sessionId ? null : state.currentSessionId,
+          currentSessionId: state.currentSessionId === sessionId ? null : state.currentSessionId,
         })),
 
-      // Connection
       isConnected: false,
       setIsConnected: (connected) => set({ isConnected: connected }),
 
-      // Processes
+      runtimeStatus: null,
+      setRuntimeStatus: (status) => set({ runtimeStatus: status }),
+
+      workspaceFiles: [],
+      setWorkspaceFiles: (files) => set({ workspaceFiles: files }),
+      selectedFile: null,
+      setSelectedFile: (file) => set({ selectedFile: file }),
+
+      attachments: [],
+      addAttachment: (attachment) =>
+        set((state) => ({
+          attachments: [...state.attachments.filter((item) => item.id !== attachment.id), attachment],
+        })),
+      removeAttachment: (attachmentId) =>
+        set((state) => ({
+          attachments: state.attachments.filter((item) => item.id !== attachmentId),
+        })),
+      clearAttachments: () => set({ attachments: [] }),
+
+      pendingExecute: null,
+      setPendingExecute: (request) => set({ pendingExecute: request }),
+
+      activity: [],
+      addActivity: (item) =>
+        set((state) => ({
+          activity: [
+            { ...item, id: crypto.randomUUID(), createdAt: new Date() },
+            ...state.activity,
+          ].slice(0, 8),
+        })),
+
       processes: [],
       setProcesses: (processes) => set({ processes }),
       addProcess: (process) =>
@@ -118,17 +237,21 @@ export const useChatStore = create<ChatState>()(
           processes: state.processes.filter((p) => p.id !== processId),
         })),
 
-      // UI state
       sidebarOpen: true,
-      toggleSidebar: () =>
-        set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      dockOpen: true,
+      setDockOpen: (open) => set({ dockOpen: open }),
+      toggleDock: () => set((state) => ({ dockOpen: !state.dockOpen })),
     }),
     {
       name: 'claude-ssh-chat-storage',
       partialize: (state) => ({
         currentSessionId: state.currentSessionId,
+        mode: state.mode,
         sessions: state.sessions,
         sidebarOpen: state.sidebarOpen,
+        dockOpen: state.dockOpen,
       }),
     }
   )

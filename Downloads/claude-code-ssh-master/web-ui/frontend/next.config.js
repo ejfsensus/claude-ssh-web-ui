@@ -1,7 +1,10 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
   reactStrictMode: true,
+  outputFileTracingRoot: path.join(__dirname),
 
   // Environment variables exposed to the browser
   env: {

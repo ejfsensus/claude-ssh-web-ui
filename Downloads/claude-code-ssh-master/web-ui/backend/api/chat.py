@@ -81,6 +81,30 @@ def _message_response(message: dict) -> dict:
     }
 
 
+def _claude_prompt(content: str, mode: str, attachments: list) -> str:
+    """Add execution mode and attachment context to the CLI prompt."""
+    mode_guidance = {
+        "ask": "Mode: ask. Answer the user directly and avoid changing files unless explicitly asked.",
+        "plan": "Mode: plan. Produce a plan only. Do not edit files, run commands, deploy, delete, or change environment variables.",
+        "execute": "Mode: execute. The user has approved this request. Continue to require confirmation before any additional destructive or deployment action not covered by the request.",
+    }.get(mode, "Mode: ask. Answer the user directly and avoid changing files unless explicitly asked.")
+
+    parts = [mode_guidance, "", content]
+    if attachments:
+        parts.extend(["", "Attached files available to inspect:"])
+        for attachment in attachments:
+            if isinstance(attachment, dict):
+                name = attachment.get("name", "attachment")
+                path = attachment.get("path", "")
+                size = attachment.get("size")
+                size_label = f", size: {size} bytes" if isinstance(size, int) else ""
+                parts.append(f"- {name}: {path}{size_label}")
+            else:
+                parts.append(f"- {attachment}")
+
+    return "\n".join(parts)
+
+
 @router.get("/sessions")
 async def list_sessions_api(limit: int = 50):
     """List all sessions."""
@@ -172,11 +196,24 @@ async def websocket_chat(websocket: WebSocket):
                 content = data.get("content", "")
                 session_id = data.get("sessionId")
                 attachments = data.get("attachments", [])
+                mode = data.get("mode", "ask")
+                client_action_id = data.get("clientActionId")
+                approved = data.get("approved", False)
 
                 if not content:
                     await websocket.send_json({
                         "type": "error",
                         "message": "Message content is required",
+                        "clientActionId": client_action_id,
+                    })
+                    continue
+
+                if mode == "execute" and not approved:
+                    await websocket.send_json({
+                        "type": "needs_approval",
+                        "message": "Confirm this execute-mode request before it reaches Claude Code.",
+                        "sessionId": session_id,
+                        "clientActionId": client_action_id,
                     })
                     continue
 
@@ -188,18 +225,29 @@ async def websocket_chat(websocket: WebSocket):
                     await websocket.send_json({
                         "type": "session_created",
                         "sessionId": session_id,
+                        "clientActionId": client_action_id,
                     })
 
                 create_message(session_id, "user", content, attachments)
 
                 claude = await get_claude()
                 response_buffer = ""
-                async for token in claude.stream_response(content, session_id):
+                await websocket.send_json({
+                    "type": "thinking",
+                    "mode": mode,
+                    "sessionId": session_id,
+                    "clientActionId": client_action_id,
+                })
+
+                prompt = _claude_prompt(content, mode, attachments)
+
+                async for token in claude.stream_response(prompt, session_id):
                     response_buffer += token
                     await websocket.send_json({
                         "type": "token",
                         "content": token,
                         "sessionId": session_id,
+                        "clientActionId": client_action_id,
                     })
 
                 create_message(session_id, "assistant", response_buffer, [])
@@ -207,6 +255,7 @@ async def websocket_chat(websocket: WebSocket):
                 await websocket.send_json({
                     "type": "done",
                     "sessionId": session_id,
+                    "clientActionId": client_action_id,
                 })
 
             elif message_type == "ping":
@@ -216,6 +265,7 @@ async def websocket_chat(websocket: WebSocket):
                 await websocket.send_json({
                     "type": "error",
                     "message": f"Unknown message type: {message_type}",
+                    "clientActionId": data.get("clientActionId"),
                 })
 
     except WebSocketDisconnect:

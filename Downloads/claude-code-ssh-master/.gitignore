@@ -15,3 +15,9 @@ Thumbs.db
 # Environment files
 .env
 .env.*
+
+# Frontend build/dependency output
+web-ui/frontend/node_modules/
+web-ui/frontend/.next/
+web-ui/frontend/out/
+web-ui/frontend/next-env.d.ts

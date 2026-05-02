@@ -1,47 +1,99 @@
 import React from 'react';
-import { Settings, Monitor } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import {
+  CircleDot,
+  LayoutPanelLeft,
+  PanelRight,
+  Radio,
+  ShieldCheck,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { useChatStore } from '@/lib/store/chatStore';
+import { cn } from '@/lib/utils';
+
+const phaseLabel = {
+  idle: 'Ready',
+  listening: 'Listening',
+  thinking: 'Thinking',
+  streaming: 'Streaming',
+  approval: 'Approval',
+  error: 'Offline',
+};
 
 export function Header() {
-  const { isConnected } = useChatStore();
+  const {
+    agentPhase,
+    dockOpen,
+    isConnected,
+    mode,
+    runtimeStatus,
+    sidebarOpen,
+    toggleDock,
+    toggleSidebar,
+  } = useChatStore();
+
+  const StatusIcon = isConnected ? Wifi : WifiOff;
+  const compact = () => typeof window !== 'undefined' && window.innerWidth <= 880;
+  const handleSidebar = () => {
+    if (compact() && !sidebarOpen && dockOpen) toggleDock();
+    toggleSidebar();
+  };
+  const handleDock = () => {
+    if (compact() && !dockOpen && sidebarOpen) toggleSidebar();
+    toggleDock();
+  };
 
   return (
-    <header className="h-16 border-b border-border bg-background flex items-center justify-between px-6">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-            C
+    <header className="studio-header">
+      <div className="header-left">
+        <button
+          className={cn('icon-button', sidebarOpen && 'icon-button-active')}
+          onClick={handleSidebar}
+          aria-label="Toggle chat history"
+          title="Chat history"
+        >
+          <LayoutPanelLeft className="h-4 w-4" />
+        </button>
+
+        <div className="brand-lockup">
+          <div className="brand-sigil">
+            <CircleDot className="h-4 w-4" />
           </div>
-          <span className="font-semibold text-lg">Claude SSH</span>
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full text-xs">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-            }`}
-          />
-          <span className="text-muted-foreground">
-            {isConnected ? 'Connected' : 'Connecting...'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-xs text-green-500">
-          <span>⚡</span>
-          <span>3 MCP Servers Active</span>
+          <div>
+            <p>Personal AI</p>
+            <h1>Agent Studio</h1>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" className="gap-2">
-          <Monitor className="h-4 w-4" />
-          Monitor
-        </Button>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <Settings className="h-4 w-4" />
-          Settings
-        </Button>
+      <div className="header-center" aria-label="Runtime state">
+        <div className={cn('status-pill', isConnected ? 'status-good' : 'status-bad')}>
+          <StatusIcon className="h-3.5 w-3.5" />
+          <span>{isConnected ? 'Connected' : 'Reconnecting'}</span>
+        </div>
+        <div className="status-pill">
+          <Radio className="h-3.5 w-3.5" />
+          <span>{phaseLabel[agentPhase]}</span>
+        </div>
+        <div className="status-pill">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span>{mode[0].toUpperCase() + mode.slice(1)}</span>
+        </div>
+        <div className={cn('status-pill', runtimeStatus?.agent?.available && 'status-good')}>
+          <span className="state-dot" />
+          <span>{runtimeStatus?.agent?.available ? 'Claude Code' : 'Checking agent'}</span>
+        </div>
+      </div>
+
+      <div className="header-right">
+        <button
+          className={cn('icon-button', dockOpen && 'icon-button-active')}
+          onClick={handleDock}
+          aria-label="Toggle context dock"
+          title="Context dock"
+        >
+          <PanelRight className="h-4 w-4" />
+        </button>
       </div>
     </header>
   );

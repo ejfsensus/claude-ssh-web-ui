@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { useChatStore } from '@/lib/store/chatStore';
+import type { AgentMode, AttachmentDescriptor } from '@/lib/store/chatStore';
 import { apiClient } from '@/lib/api/client';
 
 let sharedSocket: WebSocket | null = null;
@@ -42,6 +43,8 @@ export function useWebSocket() {
       ws.onopen = () => {
         isConnecting = false;
         setIsConnected(true);
+        useChatStore.getState().setAgentPhase('idle');
+        useChatStore.getState().addActivity({ label: 'Agent channel connected', tone: 'success' });
         clearReconnect();
 
         if (!heartbeatInterval) {
@@ -72,14 +75,29 @@ export function useWebSocket() {
               });
               break;
 
+            case 'thinking':
+              store.setAgentPhase('thinking');
+              store.addActivity({ label: 'Claude Code is reading the request', tone: 'neutral' });
+              break;
+
             case 'token':
+              store.setAgentPhase('streaming');
               store.appendToLastMessage(data.content);
               break;
 
+            case 'needs_approval':
+              store.setAgentPhase('approval');
+              store.addActivity({ label: 'Execution needs approval', tone: 'warning' });
+              break;
+
             case 'done':
+              store.setAgentPhase('idle');
+              store.addActivity({ label: 'Response complete', tone: 'success' });
               break;
 
             case 'error':
+              store.setAgentPhase('error');
+              store.addActivity({ label: data.message || 'Agent error', tone: 'danger' });
               store.addMessage({
                 id: crypto.randomUUID(),
                 role: 'system',
@@ -104,6 +122,8 @@ export function useWebSocket() {
         sharedSocket = null;
         clearHeartbeat();
         setIsConnected(false);
+        useChatStore.getState().setAgentPhase('error');
+        useChatStore.getState().addActivity({ label: 'Agent channel disconnected', tone: 'danger' });
 
         reconnectTimeout = setTimeout(() => {
           connect();
@@ -112,10 +132,12 @@ export function useWebSocket() {
 
       ws.onerror = (error) => {
         isConnecting = false;
+        useChatStore.getState().setAgentPhase('error');
         console.error('WebSocket error:', error);
       };
     } catch (error) {
       isConnecting = false;
+      useChatStore.getState().setAgentPhase('error');
       console.error('Failed to connect WebSocket:', error);
 
       reconnectTimeout = setTimeout(() => {
@@ -137,14 +159,26 @@ export function useWebSocket() {
     setIsConnected(false);
   }, [setIsConnected]);
 
-  const sendMessage = useCallback((content: string, attachments: string[] = []) => {
+  const sendMessage = useCallback((
+    content: string,
+    options: {
+      mode?: AgentMode;
+      attachments?: AttachmentDescriptor[];
+      approved?: boolean;
+      clientActionId?: string;
+    } = {}
+  ) => {
     if (!sharedSocket || sharedSocket.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected');
+      useChatStore.getState().addActivity({ label: 'Message could not send, channel offline', tone: 'danger' });
       return;
     }
 
     const store = useChatStore.getState();
+    const mode = options.mode || store.mode;
+    const attachments = options.attachments || store.attachments;
+    const clientActionId = options.clientActionId || crypto.randomUUID();
 
+    store.setAgentPhase(mode === 'execute' && !options.approved ? 'approval' : 'listening');
     store.addMessage({
       id: crypto.randomUUID(),
       role: 'user',
@@ -166,8 +200,13 @@ export function useWebSocket() {
         content,
         sessionId: store.currentSessionId,
         attachments,
+        mode,
+        approved: Boolean(options.approved),
+        clientActionId,
       })
     );
+
+    store.clearAttachments();
   }, []);
 
   useEffect(() => {

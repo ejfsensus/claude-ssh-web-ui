@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Claude SSH - Web Interface",
-  description: "Modern web interface for Claude Code CLI",
+  title: "Personal AI Agent Studio",
+  description: "A personal chat workspace for Claude Code.",
 };
 
 export default function RootLayout({

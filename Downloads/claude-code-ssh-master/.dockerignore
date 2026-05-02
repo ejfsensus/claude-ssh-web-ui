@@ -6,3 +6,6 @@
 !README.md
 LICENSE
 .dockerignore
+web-ui/frontend/node_modules/
+web-ui/frontend/.next/
+web-ui/frontend/out/
