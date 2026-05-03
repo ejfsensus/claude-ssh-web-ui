@@ -379,15 +379,49 @@ else
     log "  ${WEB_UI_ENV} already exists"
 fi
 
-# Export Railway public domain if available (for CORS)
-if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
-    cat >> "${WEB_UI_ENV}" <<EOF
+# s6 services do not reliably inherit the Railway/container environment.
+# Keep the web backend's persistent env file synced with runtime variables.
+sync_web_ui_env_var() {
+    local name="$1"
+    local value="${!name:-}"
 
-# Railway domain (auto-detected)
-RAILWAY_PUBLIC_DOMAIN=${RAILWAY_PUBLIC_DOMAIN}
-EOF
-    log "  Added Railway domain to web UI config"
-fi
+    # Accept values pasted with shell-style wrapping quotes in Railway.
+    case "$value" in
+        \"*\") value="${value#\"}"; value="${value%\"}" ;;
+        \'*\') value="${value#\'}"; value="${value%\'}" ;;
+    esac
+
+    sed -i "/^${name}=/d" "${WEB_UI_ENV}"
+    if [ -n "$value" ]; then
+        local escaped
+        escaped="$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+        printf '%s="%s"\n' "$name" "$escaped" >> "${WEB_UI_ENV}"
+        log "  Synced ${name} to web UI env"
+    fi
+}
+
+for env_name in \
+    RAILWAY_PUBLIC_DOMAIN \
+    WEB_UI_PASSWORD \
+    SECRET_KEY \
+    CLAUDE_WORKSPACE \
+    CLAUDE_BINARY \
+    WEB_UI_DATA_DIR \
+    DATA_VOLUME_DIR \
+    FRONTEND_BUILD_PATH \
+    SKILLS_ROOTS \
+    MCP_CONFIG_PATHS \
+    DEEPGRAM_API_KEY \
+    DEEPGRAM_VOICE_AGENT_URL \
+    DEEPGRAM_LISTEN_MODEL \
+    DEEPGRAM_THINK_PROVIDER \
+    DEEPGRAM_THINK_MODEL \
+    DEEPGRAM_SPEAK_MODEL \
+    DEEPGRAM_VOICE_SAMPLE_RATE \
+    DEEPGRAM_VOICE_PROMPT \
+    DEEPGRAM_VOICE_GREETING; do
+    sync_web_ui_env_var "$env_name"
+done
 
 # Set proper permissions. The web UI runs as the claude user so the backend can
 # write its SQLite database and use the same Claude Code home/auth as SSH.

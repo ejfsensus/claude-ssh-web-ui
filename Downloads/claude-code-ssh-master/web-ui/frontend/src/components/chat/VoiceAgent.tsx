@@ -96,11 +96,9 @@ export function VoiceAgent() {
     addActivity,
     addConsoleEvent,
     currentSessionId,
-    runtimeStatus,
   } = useChatStore();
   const { sendMessage, isConnected } = useWebSocket();
 
-  const voiceEnabled = Boolean(runtimeStatus?.features?.voice);
   const active = open && ['connecting', 'listening', 'thinking', 'speaking'].includes(voiceState);
 
   const stopMicrophone = useCallback(() => {
@@ -211,12 +209,6 @@ export function VoiceAgent() {
   }, []);
 
   const startVoice = useCallback(() => {
-    if (!voiceEnabled) {
-      addActivity({ label: 'Voice needs server configuration', tone: 'warning' });
-      addConsoleEvent({ kind: 'voice', level: 'warning', label: 'Voice requested without Deepgram key' });
-      return;
-    }
-
     stopVoice(false);
     setOpen(true);
     setError('');
@@ -310,7 +302,6 @@ export function VoiceAgent() {
     startMicrophone,
     stopMicrophone,
     stopVoice,
-    voiceEnabled,
   ]);
 
   const closeOverlay = () => {
@@ -368,9 +359,8 @@ export function VoiceAgent() {
       <button
         className={cn('voice-orb-button', active && 'voice-orb-button-active')}
         onClick={startVoice}
-        disabled={!voiceEnabled}
-        aria-label={voiceEnabled ? 'Open voice agent' : 'Voice unavailable'}
-        title={voiceEnabled ? 'Voice agent' : 'Voice unavailable'}
+        aria-label="Open voice agent"
+        title="Voice agent"
       >
         <span className="voice-orb-glow" />
         <Mic2 className="h-4 w-4" />
