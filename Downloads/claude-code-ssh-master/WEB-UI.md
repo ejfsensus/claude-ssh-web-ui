@@ -12,6 +12,7 @@ This repository now includes a **modern web interface** alongside the existing S
 - **Full Claude Code features** - Access all CLI capabilities from browser
 - **Background processes** - Monitor and manage long-running tasks
 - **File operations** - Upload/download/workspace integration (Phase 2)
+- **Deepgram Voice Agent** - Voice orb, live transcript, audio response playback, and Claude Code handoff
 
 Both SSH (port 22) and Web UI (port 8080) run simultaneously in the same container.
 
@@ -27,6 +28,7 @@ Both SSH (port 22) and Web UI (port 8080) run simultaneously in the same contain
    ```bash
    SSH_PUBLIC_KEY=your-ssh-public-key     # Required for SSH access
    ANTHROPIC_API_KEY=your-api-key          # Required for Claude
+   DEEPGRAM_API_KEY=your-deepgram-key      # Optional: enables voice mode
    WEB_UI_PASSWORD=optional-password      # Optional: password protect web UI
    ```
 
@@ -79,6 +81,7 @@ npm run dev
 - **Backend**: FastAPI 0.115 + WebSockets + SQLite
 - **Frontend**: Next.js 15 + React 19 + Tailwind CSS
 - **State**: Zustand + LocalStorage persistence
+- **Voice**: Deepgram Voice Agent via the FastAPI WebSocket bridge
 - **Process**: s6-overlay supervises both SSH and web-ui services
 
 ## Features
@@ -103,6 +106,18 @@ npm run dev
 - Collapsible sidebar
 - Smooth animations
 
+✅ **Voice Agent**
+- Deepgram-backed voice orb in the main header
+- Browser microphone capture as 24 kHz linear16 PCM
+- Live transcript with user/agent turns
+- Raw PCM audio playback from Deepgram TTS
+- End & hand off flow into the existing Claude Code chat stream
+
+✅ **Persistent Data Browser**
+- Workspace root remains the default file view
+- `/data` is exposed as a safe named root in the context dock
+- Path traversal is constrained to approved roots
+
 ✅ **Infrastructure**
 - Multi-port Docker container (SSH + HTTP)
 - s6-overlay process supervision
@@ -112,9 +127,6 @@ npm run dev
 ### Planned Features (Phase 2+)
 
 ⏳ **File Operations**
-- Drag-and-drop file upload
-- Workspace file browser
-- File attachment to messages
 - Download generated files
 
 ⏳ **Background Processes**
@@ -128,7 +140,6 @@ npm run dev
 - Tool execution visualization
 
 ⏳ **Advanced Features**
-- Voice input/output (TTS/STT)
 - Session search and filtering
 - Export/import sessions
 - Multi-language support
@@ -222,6 +233,10 @@ Real-time bidirectional streaming chat.
 {"type": "error", "message": "Error text"}
 ```
 
+**`WS /api/ws/voice`**
+
+Browser voice bridge. The client sends 24 kHz linear16 PCM frames as binary WebSocket messages. The backend connects to Deepgram with the server-side API key, forwards Deepgram JSON events, and relays raw output audio back to the browser.
+
 ### REST Endpoints
 
 - `GET /api/health` - Health check
@@ -229,7 +244,9 @@ Real-time bidirectional streaming chat.
 - `POST /api/sessions` - Create new session
 - `GET /api/sessions/{id}/messages` - Get session messages
 - `POST /api/files/upload` - Upload file (stub)
-- `GET /api/files/list` - List workspace files (stub)
+- `GET /api/files/list` - List files under an approved root
+- `GET /api/files/roots` - List approved browser roots (`workspace`, `data`)
+- `POST /api/voice/handoff` - Wrap a voice transcript for Claude Code handoff
 - `POST /api/processes/start` - Start process (stub)
 - `GET /api/processes` - List processes (stub)
 
@@ -242,6 +259,12 @@ Real-time bidirectional streaming chat.
 | `WEB_UI_PASSWORD` | ❌ | - | Optional password for web UI |
 | `NODE_VERSION` | ❌ | 24 | Node.js version |
 | `PNPM_VERSION` | ❌ | 10.4.1 | pnpm version |
+| `DEEPGRAM_API_KEY` | ❌ | - | Enables Deepgram Voice Agent mode |
+| `DEEPGRAM_VOICE_AGENT_URL` | ❌ | `wss://api.eu.deepgram.com/v1/agent/converse` | Deepgram Voice Agent endpoint |
+| `DEEPGRAM_LISTEN_MODEL` | ❌ | `nova-3` | Deepgram STT model |
+| `DEEPGRAM_THINK_PROVIDER` | ❌ | `open_ai` | Voice Agent LLM provider, for example `open_ai` or `anthropic` |
+| `DEEPGRAM_THINK_MODEL` | ❌ | `gpt-4o-mini` | Voice Agent LLM model |
+| `DEEPGRAM_SPEAK_MODEL` | ❌ | `aura-2-thalia-en` | Deepgram TTS model |
 
 ## Security
 

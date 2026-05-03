@@ -5,6 +5,7 @@
 import type {
   AttachmentDescriptor,
   ConsoleEvent,
+  FileRoot,
   MCPServer,
   RuntimeStatus,
   SkillItem,
@@ -88,6 +89,10 @@ export class APIClient {
     return new WebSocket(`${this.wsURL}/api/ws/chat`);
   }
 
+  connectVoiceWebSocket(): WebSocket {
+    return new WebSocket(`${this.wsURL}/api/ws/voice`);
+  }
+
   async healthCheck() {
     return this.get('/health');
   }
@@ -112,16 +117,27 @@ export class APIClient {
     return this.get(`/sessions/${sessionId}/messages`);
   }
 
-  async listFiles(path = ''): Promise<{ path: string; files: WorkspaceFile[] }> {
+  async listFiles(
+    path = '',
+    root = 'workspace'
+  ): Promise<{ path: string; root: string; roots?: FileRoot[]; files: WorkspaceFile[] }> {
     const params = new URLSearchParams();
     if (path) params.set('path', path);
+    if (root) params.set('root', root);
     const query = params.toString();
     return this.get(`/workspace/tree${query ? `?${query}` : ''}`);
   }
 
-  async previewFile(path: string) {
-    const params = new URLSearchParams({ path });
+  async previewFile(path: string, root = 'workspace') {
+    const params = new URLSearchParams({ path, root });
     return this.get(`/workspace/file?${params.toString()}`);
+  }
+
+  async createVoiceHandoff(data: {
+    sessionId?: string | null;
+    transcript: Array<{ role: 'user' | 'assistant' | 'system'; content: string; createdAt?: string }>;
+  }): Promise<{ prompt: string; turnCount: number; createdAt: string }> {
+    return this.post('/voice/handoff', data);
   }
 
   async uploadFile(file: File): Promise<{ file: AttachmentDescriptor }> {

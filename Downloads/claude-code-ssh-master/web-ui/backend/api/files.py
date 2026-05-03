@@ -17,34 +17,75 @@ router = APIRouter()
 
 MAX_TEXT_PREVIEW_SIZE = 1024 * 1024
 MAX_UPLOAD_SIZE = settings.MAX_UPLOAD_SIZE
+ROOT_WORKSPACE = "workspace"
+ROOT_DATA = "data"
 
 
-def _workspace_root() -> Path:
-    return Path(settings.CLAUDE_WORKSPACE).resolve()
+def _storage_roots() -> list[dict]:
+    """Return approved roots the browser may inspect."""
+    configured = [
+        {
+            "id": ROOT_WORKSPACE,
+            "label": "Workspace",
+            "path": Path(settings.CLAUDE_WORKSPACE),
+        },
+        {
+            "id": ROOT_DATA,
+            "label": "Data Volume",
+            "path": Path(settings.DATA_VOLUME_DIR),
+        },
+    ]
+
+    roots = []
+    seen = set()
+    for root in configured:
+        path = root["path"].resolve()
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        roots.append({
+            **root,
+            "path": path,
+            "exists": path.exists() and path.is_dir(),
+        })
+
+    return roots
 
 
-def _safe_workspace_path(path: str = "") -> Path:
-    root = _workspace_root()
+def _storage_root(root_id: str = ROOT_WORKSPACE) -> Path:
+    roots = {root["id"]: root for root in _storage_roots()}
+    root = roots.get(root_id)
+    if not root:
+        raise HTTPException(status_code=400, detail="Unknown file browser root")
+    if not root["exists"]:
+        raise HTTPException(status_code=404, detail=f"{root['label']} is not available")
+    return root["path"]
+
+
+def _safe_storage_path(path: str = "", root_id: str = ROOT_WORKSPACE) -> Path:
+    root = _storage_root(root_id)
     candidate = (root / path.lstrip("/")).resolve()
 
     try:
         candidate.relative_to(root)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Path must stay inside the workspace")
+        raise HTTPException(status_code=400, detail="Path must stay inside the selected root")
 
     return candidate
 
 
-def _relative_workspace_path(path: Path) -> str:
-    relative = path.resolve().relative_to(_workspace_root())
+def _relative_storage_path(path: Path, root_id: str = ROOT_WORKSPACE) -> str:
+    relative = path.resolve().relative_to(_storage_root(root_id))
     return "" if str(relative) == "." else str(relative)
 
 
-def _file_response(path: Path) -> dict:
+def _file_response(path: Path, root_id: str = ROOT_WORKSPACE) -> dict:
     stat = path.stat()
     return {
         "name": path.name,
-        "path": _relative_workspace_path(path),
+        "path": _relative_storage_path(path, root_id),
+        "root": root_id,
         "type": "directory" if path.is_dir() else "file",
         "size": 0 if path.is_dir() else stat.st_size,
         "modifiedAt": datetime.utcfromtimestamp(stat.st_mtime).isoformat(),
@@ -98,15 +139,31 @@ async def upload_file(file: UploadFile = File(...)):
 
 
 @router.get("/files/list")
-async def list_files(path: str = ""):
+async def list_files(path: str = "", root: str = ROOT_WORKSPACE):
     """List workspace files for backwards compatibility with the frontend."""
-    return await workspace_tree(path=path)
+    return await workspace_tree(path=path, root=root)
+
+
+@router.get("/files/roots")
+async def file_roots():
+    """List safe file browser roots."""
+    return {
+        "roots": [
+            {
+                "id": root["id"],
+                "label": root["label"],
+                "path": str(root["path"]),
+                "exists": root["exists"],
+            }
+            for root in _storage_roots()
+        ]
+    }
 
 
 @router.get("/workspace/tree")
-async def workspace_tree(path: str = ""):
-    """List direct children for a workspace directory."""
-    directory = _safe_workspace_path(path)
+async def workspace_tree(path: str = "", root: str = ROOT_WORKSPACE):
+    """List direct children for a safe storage directory."""
+    directory = _safe_storage_path(path, root)
     if not directory.exists():
         raise HTTPException(status_code=404, detail="Path not found")
     if not directory.is_dir():
@@ -116,18 +173,28 @@ async def workspace_tree(path: str = ""):
     for child in sorted(directory.iterdir(), key=lambda item: (not item.is_dir(), item.name.lower())):
         if child.name.startswith(".git"):
             continue
-        children.append(_file_response(child))
+        children.append(_file_response(child, root))
 
     return {
-        "path": _relative_workspace_path(directory),
+        "path": _relative_storage_path(directory, root),
+        "root": root,
+        "roots": [
+            {
+                "id": item["id"],
+                "label": item["label"],
+                "path": str(item["path"]),
+                "exists": item["exists"],
+            }
+            for item in _storage_roots()
+        ],
         "files": children,
     }
 
 
 @router.get("/workspace/file")
-async def workspace_file(path: str = Query(..., min_length=1)):
-    """Preview a text file from the workspace."""
-    target = _safe_workspace_path(path)
+async def workspace_file(path: str = Query(..., min_length=1), root: str = ROOT_WORKSPACE):
+    """Preview a text file from a safe storage root."""
+    target = _safe_storage_path(path, root)
     if not target.exists():
         raise HTTPException(status_code=404, detail="File not found")
     if not target.is_file():
@@ -146,7 +213,7 @@ async def workspace_file(path: str = Query(..., min_length=1)):
 
     return {
         "file": {
-            **_file_response(target),
+            **_file_response(target, root),
             "content": content,
         }
     }

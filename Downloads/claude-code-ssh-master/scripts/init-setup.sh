@@ -363,6 +363,14 @@ if [ ! -f "${WEB_UI_ENV}" ]; then
 # Optional: Custom workspace (defaults to /workspace)
 # CLAUDE_WORKSPACE=/workspace
 
+# Optional: Deepgram Voice Agent
+# DEEPGRAM_API_KEY=your-deepgram-api-key
+# DEEPGRAM_VOICE_AGENT_URL=wss://api.eu.deepgram.com/v1/agent/converse
+# DEEPGRAM_LISTEN_MODEL=nova-3
+# DEEPGRAM_THINK_PROVIDER=open_ai
+# DEEPGRAM_THINK_MODEL=gpt-4o-mini
+# DEEPGRAM_SPEAK_MODEL=aura-2-thalia-en
+
 # Debug mode (disable in production)
 DEBUG=false
 EOF

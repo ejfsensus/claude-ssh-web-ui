@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
+import os
 from pathlib import Path
 
 from core.config import settings
@@ -18,6 +19,7 @@ from api.chat import router as chat_router
 from api.context import router as context_router
 from api.files import router as files_router
 from api.processes import router as processes_router
+from api.voice import router as voice_router
 
 # Logging setup
 logging.basicConfig(
@@ -77,6 +79,7 @@ app.include_router(chat_router, prefix="/api", tags=["chat"])
 app.include_router(context_router, prefix="/api", tags=["context"])
 app.include_router(files_router, prefix="/api", tags=["files"])
 app.include_router(processes_router, prefix="/api", tags=["processes"])
+app.include_router(voice_router, prefix="/api", tags=["voice"])
 
 # Mount static files from the Next.js export.
 #
@@ -109,6 +112,7 @@ async def status_check():
     claude = await get_claude()
     claude_available = await claude.is_available()
     workspace = Path(settings.CLAUDE_WORKSPACE)
+    data_volume = Path(settings.DATA_VOLUME_DIR)
 
     return {
         "status": "ready" if claude_available else "degraded",
@@ -122,6 +126,12 @@ async def status_check():
             "path": str(workspace),
             "exists": workspace.exists(),
         },
+        "dataVolume": {
+            "path": str(data_volume),
+            "exists": data_volume.exists(),
+            "readable": data_volume.exists() and os.access(data_volume, os.R_OK),
+            "writable": data_volume.exists() and os.access(data_volume, os.W_OK),
+        },
         "features": {
             "chat": True,
             "uploads": True,
@@ -129,7 +139,7 @@ async def status_check():
             "skills": True,
             "mcpList": True,
             "agentConsole": True,
-            "voice": False,
+            "voice": bool(settings.DEEPGRAM_API_KEY),
             "mutationsRequireConfirmation": True,
         },
     }

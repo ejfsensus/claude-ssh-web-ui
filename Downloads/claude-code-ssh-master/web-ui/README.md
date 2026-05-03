@@ -8,6 +8,7 @@ Modern web interface for Claude Code CLI running on Railway.
 - Wraps existing Claude Code CLI
 - SQLite database for session persistence
 - Real-time chat via WebSockets
+- Deepgram Voice Agent WebSocket bridge
 - File upload/download
 - Background process monitoring
 
@@ -47,6 +48,7 @@ web-ui/backend/
 
 ### WebSocket
 - `WS /api/ws/chat` - Real-time chat streaming
+- `WS /api/ws/voice` - Deepgram Voice Agent audio bridge
 
 ### REST
 - `GET /api/health` - Health check
@@ -54,7 +56,9 @@ web-ui/backend/
 - `POST /api/sessions` - Create session
 - `GET /api/sessions/{id}/messages` - Get messages
 - `POST /api/files/upload` - Upload files
-- `GET /api/files/list` - List workspace files
+- `GET /api/files/list` - List files in `workspace` or `data`
+- `GET /api/files/roots` - List safe browser roots
+- `POST /api/voice/handoff` - Create a Claude Code handoff prompt from voice transcript
 - `POST /api/processes/start` - Start background process
 
 ## Environment Variables
@@ -68,6 +72,14 @@ RAILWAY_PUBLIC_DOMAIN=your-domain.up.railway.app
 
 # Optional: Claude workspace (default: /workspace)
 CLAUDE_WORKSPACE=/workspace
+
+# Optional: Deepgram Voice Agent
+DEEPGRAM_API_KEY=your-deepgram-api-key
+DEEPGRAM_VOICE_AGENT_URL=wss://api.eu.deepgram.com/v1/agent/converse
+DEEPGRAM_LISTEN_MODEL=nova-3
+DEEPGRAM_THINK_PROVIDER=open_ai
+DEEPGRAM_THINK_MODEL=gpt-4o-mini
+DEEPGRAM_SPEAK_MODEL=aura-2-thalia-en
 ```
 
 ## Development

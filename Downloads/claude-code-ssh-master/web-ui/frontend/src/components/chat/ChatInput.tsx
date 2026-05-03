@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Check, FileUp, Mic2, Send, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, Check, FileUp, Send, ShieldCheck, X } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import { useChatStore } from '@/lib/store/chatStore';
@@ -238,14 +238,6 @@ export function ChatInput() {
               aria-label="Attach file"
             >
               <FileUp className="h-4 w-4" />
-            </button>
-            <button
-              className="icon-button"
-              disabled
-              title="Voice unavailable in this build"
-              aria-label="Voice unavailable"
-            >
-              <Mic2 className="h-4 w-4" />
             </button>
           </div>
           <button

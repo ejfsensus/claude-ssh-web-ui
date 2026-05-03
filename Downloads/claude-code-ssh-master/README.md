@@ -215,6 +215,7 @@ The included tmux config is tuned for mobile: 256-color support, mouse/touch scr
 | ------------------- | -------- | -------- | -------------------------------------------------------------------------- |
 | `SSH_PUBLIC_KEY`    | Yes      | —        | Ed25519 public key(s) for SSH auth. Multiple keys supported, one per line. |
 | `ANTHROPIC_API_KEY` | No       | —        | Claude API key. Alternative to `claude login`.                             |
+| `DEEPGRAM_API_KEY`  | No       | —        | Enables the web UI Voice Agent and voice handoff flow.                     |
 | `GITHUB_TOKEN`      | No       | —        | Fine-grained PAT for cloning private repos. Scoped to specific repos only. |
 | `NODE_VERSION`      | No       | `24`     | Node.js version (e.g. `22`, `20.18.0`). Uses `n` to switch at boot.        |
 | `PNPM_VERSION`      | No       | `latest` | pnpm version (e.g. `9.15.0`, `10`). Uses corepack to switch at boot.       |

@@ -42,10 +42,18 @@ export interface Process {
 export interface WorkspaceFile {
   name: string;
   path: string;
+  root?: string;
   type: 'file' | 'directory';
   size: number;
   modifiedAt?: string;
   mimeType?: string | null;
+}
+
+export interface FileRoot {
+  id: string;
+  label: string;
+  path: string;
+  exists: boolean;
 }
 
 export interface RuntimeStatus {
@@ -57,6 +65,12 @@ export interface RuntimeStatus {
   workspace?: {
     path: string;
     exists: boolean;
+  };
+  dataVolume?: {
+    path: string;
+    exists: boolean;
+    readable: boolean;
+    writable: boolean;
   };
   features?: Record<string, boolean>;
 }

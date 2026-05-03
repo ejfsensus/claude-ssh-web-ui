@@ -43,10 +43,36 @@ class Settings:
     # Database
     WEB_UI_DATA_DIR: str = os.getenv("WEB_UI_DATA_DIR", "/data/web-ui")
     DATABASE_URL: str = f"sqlite+aiosqlite:///{WEB_UI_DATA_DIR}/sessions.db"
+    DATA_VOLUME_DIR: str = os.getenv("DATA_VOLUME_DIR", "/data")
 
     # File storage
     UPLOAD_DIR: Path = Path(WEB_UI_DATA_DIR) / "uploads"
     MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024  # 50MB
+
+    # Deepgram Voice Agent
+    DEEPGRAM_API_KEY: str = os.getenv("DEEPGRAM_API_KEY", "")
+    DEEPGRAM_VOICE_AGENT_URL: str = os.getenv(
+        "DEEPGRAM_VOICE_AGENT_URL",
+        "wss://api.eu.deepgram.com/v1/agent/converse",
+    )
+    DEEPGRAM_LISTEN_MODEL: str = os.getenv("DEEPGRAM_LISTEN_MODEL", "nova-3")
+    DEEPGRAM_THINK_PROVIDER: str = os.getenv("DEEPGRAM_THINK_PROVIDER", "open_ai")
+    DEEPGRAM_THINK_MODEL: str = os.getenv("DEEPGRAM_THINK_MODEL", "gpt-4o-mini")
+    DEEPGRAM_SPEAK_MODEL: str = os.getenv("DEEPGRAM_SPEAK_MODEL", "aura-2-thalia-en")
+    DEEPGRAM_VOICE_SAMPLE_RATE: int = int(os.getenv("DEEPGRAM_VOICE_SAMPLE_RATE", "24000"))
+    DEEPGRAM_VOICE_PROMPT: str = os.getenv(
+        "DEEPGRAM_VOICE_PROMPT",
+        (
+            "You are the live voice intake layer for a personal Claude Code agent. "
+            "Keep spoken replies concise, clarify ambiguous requests, and gather the "
+            "files, constraints, preferred mode, risks, and desired outcome needed for "
+            "a clean handoff to Claude Code."
+        ),
+    )
+    DEEPGRAM_VOICE_GREETING: str = os.getenv(
+        "DEEPGRAM_VOICE_GREETING",
+        "Voice mode is online. What should we work through?",
+    )
 
     # Claude Code CLI
     CLAUDE_BINARY: str = os.getenv("CLAUDE_BINARY", "/data/home/.local/bin/claude")

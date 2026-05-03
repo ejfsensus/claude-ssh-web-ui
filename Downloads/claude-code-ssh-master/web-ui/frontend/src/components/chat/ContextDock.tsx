@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useChatStore } from '@/lib/store/chatStore';
-import type { SkillItem, WorkspaceFile } from '@/lib/store/chatStore';
+import type { FileRoot, SkillItem, WorkspaceFile } from '@/lib/store/chatStore';
 import { cn, formatDate } from '@/lib/utils';
 
 type DockTab = 'files' | 'skills' | 'mcp' | 'console';
@@ -59,6 +59,8 @@ export function ContextDock() {
     workspaceFiles,
   } = useChatStore();
   const [activeTab, setActiveTab] = useState<DockTab>('files');
+  const [activeRoot, setActiveRoot] = useState('workspace');
+  const [fileRoots, setFileRoots] = useState<FileRoot[]>([]);
   const [currentPath, setCurrentPath] = useState('');
   const [preview, setPreview] = useState<string>('');
   const [previewError, setPreviewError] = useState<string>('');
@@ -88,20 +90,36 @@ export function ContextDock() {
     }
   };
 
+  const applyFileResponse = (data: { path: string; root?: string; roots?: FileRoot[]; files: WorkspaceFile[] }) => {
+    setActiveRoot(data.root || activeRoot);
+    setCurrentPath(data.path);
+    setWorkspaceFiles(data.files);
+    if (data.roots) setFileRoots(data.roots);
+  };
+
   useEffect(() => {
     loadAgentContext();
+    apiClient
+      .listFiles('', activeRoot)
+      .then(applyFileResponse)
+      .catch((error) => {
+        addActivity({
+          label: error instanceof Error ? error.message : 'File roots unavailable',
+          tone: 'danger',
+        });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openFile = async (file: WorkspaceFile) => {
     setPreview('');
     setPreviewError('');
+    const root = file.root || activeRoot;
 
     if (file.type === 'directory') {
       try {
-        const data = await apiClient.listFiles(file.path);
-        setCurrentPath(data.path);
-        setWorkspaceFiles(data.files);
+        const data = await apiClient.listFiles(file.path, root);
+        applyFileResponse(data);
         setSelectedFile(null);
       } catch (error) {
         addActivity({
@@ -115,7 +133,7 @@ export function ContextDock() {
     setSelectedFile(file);
 
     try {
-      const data = await apiClient.previewFile(file.path);
+      const data = await apiClient.previewFile(file.path, root);
       setPreview(data.file.content);
     } catch (error) {
       setPreviewError(error instanceof Error ? error.message : 'Preview unavailable');
@@ -125,9 +143,8 @@ export function ContextDock() {
   const openParent = async () => {
     try {
       const parent = currentPath.split('/').slice(0, -1).join('/');
-      const data = await apiClient.listFiles(parent);
-      setCurrentPath(data.path);
-      setWorkspaceFiles(data.files);
+      const data = await apiClient.listFiles(parent, activeRoot);
+      applyFileResponse(data);
       setSelectedFile(null);
       setPreview('');
       setPreviewError('');
@@ -141,12 +158,30 @@ export function ContextDock() {
 
   const reloadFiles = async () => {
     try {
-      const data = await apiClient.listFiles(currentPath);
-      setWorkspaceFiles(data.files);
+      const data = await apiClient.listFiles(currentPath, activeRoot);
+      applyFileResponse(data);
       addActivity({ label: 'File list refreshed', tone: 'success' });
     } catch (error) {
       addActivity({
         label: error instanceof Error ? error.message : 'File refresh failed',
+        tone: 'danger',
+      });
+    }
+  };
+
+  const switchRoot = async (rootId: string) => {
+    try {
+      setActiveRoot(rootId);
+      setCurrentPath('');
+      setSelectedFile(null);
+      setPreview('');
+      setPreviewError('');
+      const data = await apiClient.listFiles('', rootId);
+      applyFileResponse(data);
+      addActivity({ label: `${data.roots?.find((root) => root.id === rootId)?.label || 'Files'} opened`, tone: 'success' });
+    } catch (error) {
+      addActivity({
+        label: error instanceof Error ? error.message : 'Storage root unavailable',
         tone: 'danger',
       });
     }
@@ -204,10 +239,12 @@ export function ContextDock() {
           <strong>{runtimeStatus?.agent?.available ? 'Available' : 'Checking'}</strong>
           <span>Workspace</span>
           <strong>{runtimeStatus?.workspace?.exists ? 'Mounted' : 'Unknown'}</strong>
+          <span>Data</span>
+          <strong>{runtimeStatus?.dataVolume?.exists ? 'Mounted' : 'Unknown'}</strong>
           <span>Safety</span>
           <strong>Confirm execute</strong>
           <span>Voice</span>
-          <strong>Unavailable</strong>
+          <strong>{runtimeStatus?.features?.voice ? 'Ready' : 'Disabled'}</strong>
         </div>
       </section>
 
@@ -232,8 +269,24 @@ export function ContextDock() {
             <UploadCloud className="h-4 w-4" />
             Documents & Files
           </div>
+          {fileRoots.length > 0 && (
+            <div className="root-switch" role="tablist" aria-label="File root">
+              {fileRoots.map((root) => (
+                <button
+                  key={root.id}
+                  className={cn(activeRoot === root.id && 'root-switch-active')}
+                  onClick={() => switchRoot(root.id)}
+                  disabled={!root.exists}
+                  role="tab"
+                  aria-selected={activeRoot === root.id}
+                >
+                  {root.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="file-toolbar">
-            <span>{currentPath || 'workspace'}</span>
+            <span>{currentPath || fileRoots.find((root) => root.id === activeRoot)?.label || 'workspace'}</span>
             <div className="flex items-center gap-1">
               <button
                 className="mini-icon-button"
@@ -422,7 +475,7 @@ export function ContextDock() {
         </div>
         <div className="system-grid">
           <span>Voice</span>
-          <strong>Unavailable</strong>
+          <strong>{runtimeStatus?.features?.voice ? 'Ready' : 'Disabled'}</strong>
           <span>Motion</span>
           <strong>Adaptive</strong>
         </div>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useChatStore } from '@/lib/store/chatStore';
 import { cn } from '@/lib/utils';
+import { VoiceAgent } from '@/components/chat/VoiceAgent';
 
 const phaseLabel = {
   idle: 'Ready',
@@ -86,6 +87,7 @@ export function Header() {
       </div>
 
       <div className="header-right">
+        <VoiceAgent />
         <button
           className={cn('icon-button', dockOpen && 'icon-button-active')}
           onClick={handleDock}
